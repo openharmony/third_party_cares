@@ -1,37 +1,67 @@
-# third_party_cares
+c-ares
+======
 
-#### 介绍
-Third-party open-source software cares | 三方开源软件cares
+[![Build Status](https://travis-ci.org/c-ares/c-ares.svg?branch=master)](https://travis-ci.org/c-ares/c-ares)
+[![Windows Build Status](https://ci.appveyor.com/api/projects/status/aevgc5914tm72pvs/branch/master?svg=true)](https://ci.appveyor.com/project/c-ares/c-ares/branch/master)
+[![Coverage Status](https://coveralls.io/repos/c-ares/c-ares/badge.svg?branch=master&service=github)](https://coveralls.io/github/c-ares/c-ares?branch=master)
+[![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/291/badge)](https://bestpractices.coreinfrastructure.org/projects/291)
+[![Fuzzing Status](https://oss-fuzz-build-logs.storage.googleapis.com/badges/c-ares.svg)](https://bugs.chromium.org/p/oss-fuzz/issues/list?sort=-opened&can=1&q=proj:c-ares)
+[![Releases](https://coderelease.io/badge/c-ares/c-ares)](https://coderelease.io/github/repository/c-ares/c-ares)
 
-#### 软件架构
-软件架构说明
+This is c-ares, an asynchronous resolver library.  It is intended for
+applications which need to perform DNS queries without blocking, or need to
+perform multiple DNS queries in parallel.  The primary examples of such
+applications are servers which communicate with multiple clients and programs
+with graphical user interfaces.
+
+The full source code is available in the ['c-ares' release archives](https://c-ares.haxx.se/download/),
+and in a git repository: http://github.com/c-ares/c-ares.  See the
+[INSTALL.md](INSTALL.md) file for build information.
+
+If you find bugs, correct flaws, have questions or have comments in general in
+regard to c-ares (or by all means the original ares too), get in touch with us
+on the c-ares mailing list: http://cool.haxx.se/mailman/listinfo/c-ares
+
+c-ares is of course distributed under the same MIT-style license as the
+original ares.
+
+You'll find all c-ares details and news here:
+        https://c-ares.haxx.se/
 
 
-#### 安装教程
+Notes for c-ares hackers
+------------------------
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+* The distributed `ares_build.h` file is only intended to be used on systems
+  which can not run the also distributed configure script.
 
-#### 使用说明
+* The distributed `ares_build.h` file is generated as a copy of `ares_build.h.dist`
+  when the c-ares source code distribution archive file is originally created.
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+* If you check out from git on a non-configure platform, you must run the
+  appropriate `buildconf*` script to set up `ares_build.h` and other local files
+  before being able to compile the library.
 
-#### 参与贡献
+* On systems capable of running the `configure` script, the `configure` process
+  will overwrite the distributed `ares_build.h` file with one that is suitable
+  and specific to the library being configured and built, this new file is
+  generated from the `ares_build.h.in` template file.
 
-1.  Fork 本仓库
-2.  新建 Feat_xxx 分支
-3.  提交代码
-4.  新建 Pull Request
+* If you intend to distribute an already compiled c-ares library you **MUST**
+  also distribute along with it the generated `ares_build.h` which has been
+  used to compile it. Otherwise the library will be of no use for the users of
+  the library that you have built. It is **your** responsibility to provide this
+  file. No one at the c-ares project can know how you have built the library.
 
+* File `ares_build.h` includes platform and configuration dependent info,
+  and must not be modified by anyone. Configure script generates it for you.
 
-#### 特技
+* We cannot assume anything else but very basic compiler features being
+  present. While c-ares requires an ANSI C compiler to build, some of the
+  earlier ANSI compilers clearly can't deal with some preprocessor operators.
 
-1.  使用 Readme\_XXX.md 来支持不同的语言，例如 Readme\_en.md, Readme\_zh.md
-2.  Gitee 官方博客 [blog.gitee.com](https://blog.gitee.com)
-3.  你可以 [https://gitee.com/explore](https://gitee.com/explore) 这个地址来了解 Gitee 上的优秀开源项目
-4.  [GVP](https://gitee.com/gvp) 全称是 Gitee 最有价值开源项目，是综合评定出的优秀开源项目
-5.  Gitee 官方提供的使用手册 [https://gitee.com/help](https://gitee.com/help)
-6.  Gitee 封面人物是一档用来展示 Gitee 会员风采的栏目 [https://gitee.com/gitee-stars/](https://gitee.com/gitee-stars/)
+* Newlines must remain unix-style for older compilers' sake.
+
+* Comments must be written in the old-style /* unnested C-fashion */
+
+* Try to keep line lengths below 80 columns.

@@ -1,0 +1,10 @@
+[
+  {
+    "Name": "c-ares",
+    "License": "MIT License",
+    "License File": "LICENSE",
+    "Version Number": "1.16.1",
+    "Upstream URL": "https://c-ares.haxx.se/",
+    "Description": "c-ares is a C library for asynchronous DNS requests."
+  }
+]
