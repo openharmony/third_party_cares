@@ -64,6 +64,17 @@ Note:If the text contains special characters, please escape them according to th
                 <filteritem type="filepath" name="m4/ax_cxx_compile_stdcxx_11.m4" desc="no license header"/>
                 <filteritem type="filepath" name="m4/zz60-xc-ovr.m4" desc="no license header"/>                
                 <filteritem type="filepath" name="m4/xc-lt-iface.m4" desc="no license header"/>
+                <filteritem type="filepath" name="m4/xc-am-iface.m4" desc="no license header"/>
+                <filteritem type="filepath" name="ares_getopt.h" desc="no license header"/>
+                <filteritem type="filepath" name="m4/xc-cc-check.m4" desc="no license header"/>
+                <filteritem type="filepath" name="bitncmp.c" desc="no license header"/>
+                <filteritem type="filepath" name="m4/xc-translit.m4" desc="no license header"/>
+                <filteritem type="filepath" name="README.cares" desc="no license header"/>
+                <filteritem type="filepath" name="m4/xc-val-flgs.m4" desc="no license header"/>
+                <filteritem type="filepath" name="m4/zz40-xc-ovr.m4" desc="no license header"/>
+                <filteritem type="filepath" name="m4/zz50-xc-ovr.m4" desc="no license header"/>
+                <filteritem type="filepath" name="inet_net_pton.c" desc="no license header"/>
+                <filteritem type="filepath" name="inet_ntop.c" desc="no license header"/>
             </filefilter>
         </filefilterlist>
     </oatconfig>
