@@ -37,7 +37,23 @@
 
 static int name_length(const unsigned char *encoded, const unsigned char *abuf,
                        int alen);
-
+static int is_reservedch(ch)
+{
+  switch(ch) {
+    case '"':
+    case '.':
+    case ';':
+    case '\\':
+    case '(':
+    case ')':
+    case '@':
+    case '$':
+      return 1;
+    default:
+      break;
+  }
+  return 0;
+}
 /* Expand an RFC1035-encoded domain name given by encoded.  The
  * containing message is given by abuf and alen.  The result given by
  * *s, which is set to a NUL-terminated allocated buffer.  *enclen is
@@ -113,13 +129,22 @@ int ares_expand_name(const unsigned char *encoded, const unsigned char *abuf,
         }
       else
         {
-          len = *p;
+          int name_len = *p;
+	  len = name_len;
           p++;
           while (len--)
             {
-              if (*p == '.' || *p == '\\')
+              if(!isprint(*p) && !(name_len == 1 && *p == 0)) {
                 *q++ = '\\';
-              *q++ = *p;
+		*q++ = '0' + *p / 100;
+		*q++ = '0' + (*p % 100) /10;
+		*q++ = '0' + (*p % 10);
+	      } else if (is_reservedch(*p)) {
+                *q++ = '\\';
+		*q++ = *p;
+	      } else {
+                *q++ = *p;
+	      }
               p++;
             }
           *q++ = '.';
@@ -171,14 +196,22 @@ static int name_length(const unsigned char *encoded, const unsigned char *abuf,
         }
       else if (top == 0x00)
         {
-          offset = *encoded;
+	  int name_len = *encoded;
+	  offset = name_len;
           if (encoded + offset + 1 >= abuf + alen)
             return -1;
           encoded++;
+
           while (offset--)
             {
-              n += (*encoded == '.' || *encoded == '\\') ? 2 : 1;
-              encoded++;
+              if(!isprint(*encoded) && !(name_len == 1 && *encoded == 0)) {
+                n += 4;
+	      } else if (is_reservedch(*encoded)) {
+                n += 2;
+	      } else {
+                n += 1;
+	      }
+	      encoded++;
             }
           n++;
         }
