@@ -109,7 +109,8 @@ int ares_parse_a_reply(const unsigned char *abuf, int alen,
 
   if (naliases)
     {
-      next_cname = ai.cnames;
+      /* Truncated to at most *naddrttls entries */
+      *naddrttls = (naddrs > *naddrttls) ? *naddrttls : naddrs;
       while (next_cname)
         {
           if(next_cname->alias)
