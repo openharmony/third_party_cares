@@ -1,0 +1,31 @@
+{
+    "name": "@ohos/cares",
+    "description": "c-ares is a C library for asynchronous DNS requests.",
+    "version": "3.1",
+    "license": "MIT",
+    "publishAs": "code-segment",
+    "segment": {
+        "destPath": "third_party/cares"
+    },
+    "dirs": {},
+    "scripts": {},
+    "licensePath": "LICENSE.md",
+    "component": {
+        "name": "thirdparty_cares",
+        "subsystem": "",
+        "syscap": [],
+        "features": [],
+        "adapted_system_type": [],
+        "rom": "",
+        "ram": "",
+        "deps": {
+            "components": [],
+            "third_party": []
+        },
+        "build": {
+            "sub_component": [],
+            "inner_kits": [],
+            "test": []
+        }
+    }
+}
