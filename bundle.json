@@ -11,8 +11,8 @@
     "scripts": {},
     "licensePath": "LICENSE.md",
     "component": {
-        "name": "thirdparty_cares",
-        "subsystem": "",
+        "name": "cares",
+        "subsystem": "thirdparty",
         "syscap": [],
         "features": [],
         "adapted_system_type": [],
