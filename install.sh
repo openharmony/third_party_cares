@@ -6,39 +6,25 @@
 #
 # Copyright(c) 2023 Huawei Device Co., Ltd.
 
-SCRIPT_HOME=$(dirname $(readlink -f $0))
-
-GEN_DIR="$1"
+SRC_DIR="$1"
+CODE_DIR="$2"
 OPEN_EULER_CARES_SOURCE_PATH="c-ares-1.18.1"
-SOURCE_PATH="$SCRIPT_HOME/$OPEN_EULER_CARES_SOURCE_PATH"
-LOG_DIR="$GEN_DIR/openEulerCares"
+OPEN_EULER_CARES_TAR="c-ares-1.18.1.tar.gz"
 
-mkdir -p "$GEN_DIR"
-mkdir -p "$LOG_DIR"
+set -e
+if [ "$SRC_DIR" == "" ] || [ "$CODE_DIR" == "" ]; then
+    exit 1
+fi
 
-init_logger() {
-    LOG_FILE="$LOG_DIR/installOpenEurlCares.log"
-    touch "$LOG_FILE"
-}
+if [ -d "$CODE_DIR" ]; then
+    rm -rf "$CODE_DIR"
+fi
 
-write_log() {
-    level="$1"
-    message="$2"
-    current_time=$(date +"%Y-%m-%d %H:%M:%S")
-    echo "$current_time | $level | OpenEulerCares | $message" >> "$LOG_FILE"
-}
+mkdir -p $CODE_DIR
 
-do_patch() {
-    patch_path="$1"
-    patch="$2"
-    write_log "do_patch: cd $patch_path;patch -p1 < $patch"
-    cd $patch_path;patch -p1 < $patch 2>&1 | while read -r line; do
-        write_log "INFO" "do_patch result=[$line]"
-    done
-}
+tar zxvf $SRC_DIR/$OPEN_EULER_CARES_TAR -C $CODE_DIR
 
-apply_patchs() {
-  _all_patchs=(
+_all_patchs=(
     "0000-Use-RPM-compiler-options.patch"
     "backport-disable-live-tests.patch"
     "backport-add-str-len-check-in-config_sortlist-to-avoid-stack-overflow.patch"
@@ -52,49 +38,9 @@ apply_patchs() {
     "backport-004-CVE-2023-31147.patch"
     "backport-005-CVE-2023-31147.patch"
     "backport-CVE-2023-31124.patch"
-  )
-  for patch_file in "${_all_patchs[@]}"
+)
+for filename in "${_all_patchs[@]}"
   do
-    do_patch "$SOURCE_PATH" "$SCRIPT_HOME/$patch_file"
+    patch -d $CODE_DIR/$OPEN_EULER_CARES_SOURCE_PATH -p1 < $SRC_DIR/$filename --fuzz=0 --no-backup-if-mismatch
   done
-}
-
-install_cares() {
-    tar_file_name="c-ares-1.18.1.tar.gz"
-    tar_file="$SCRIPT_HOME/$tar_file_name"
-    readme="README.OpenSource"
-    cd "$SCRIPT_HOME" || exit
-
-    if [ -d "$SOURCE_PATH" ]; then
-        ctime=$(stat -c %Y "$SOURCE_PATH")
-        nowtime=$(date +%s)
-        difftime=$((nowtime - ctime))
-        write_log "INFO" "nowTime=$nowtime, oldTime=$ctime"
-        if [ $difftime -gt 300 ]; then
-            write_log "INFO" "Removing OpenEuler Cares source path $SOURCE_PATH"
-            rm -rf "$SOURCE_PATH"
-            write_log "INFO" "Removed source path successfully"
-        else
-            write_log "INFO" "It's too new, does not need to remove OpenEuler Cares source path $source_path, diff time $difftime"
-            return
-        fi
-    fi
-
-    tar -xvf "$tar_file" -C "$SCRIPT_HOME" | while read -r line; do
-        write_log "INFO" "tar result=[$line]"
-    done
-    if [ ! -d "$SOURCE_PATH" ]; then
-        write_log "ERR" "Failed to unzip OpenEuler Cares tar $tar_file"
-        return -1
-    fi
-}
-
-main() {
-    init_logger
-    write_log "INFO" "start install c-ares script path is $SCRIPT_HOME."
-    install_cares
-    apply_patchs
-    write_log "INFO" "c-ares install end."
-}
-
-main
+exit 0
