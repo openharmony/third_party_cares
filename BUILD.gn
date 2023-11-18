@@ -74,53 +74,44 @@ cares_srcs = [
   "bitncmp.c",
   "inet_net_pton.c",
   "inet_ntop.c",
-  "windows_port.c",
+  "windows_port.c"
 ]
 
-sources_test = [
-  "test/ares-test-main.cc",
-  "test/ares-test.cc",
-  "test/ares-test-ns.cc",
-  "test/ares-test-parse.cc",
-  "test/ares-test-parse-a.cc",
-  "test/ares-test-parse-aaaa.cc",
-  "test/ares-test-parse-caa.cc",
-  "test/ares-test-parse-mx.cc",
-  "test/ares-test-parse-naptr.cc",
-  "test/ares-test-parse-ns.cc",
-  "test/ares-test-parse-ptr.cc",
-  "test/ares-test-parse-soa.cc",
-  "test/ares-test-parse-soa-any.cc",
-  "test/ares-test-parse-srv.cc",
-  "test/ares-test-parse-txt.cc",
-  "test/ares-test-parse-uri.cc",
-  "test/ares-test-misc.cc",
-  "test/ares-test-mock.cc",
-  "test/ares-test-internal.cc",
-  "test/dns-proto.cc",
-  "test/dns-proto-test.cc",
-  "test/gmock-1.11.0/gmock-gtest-all.cc",
+sources_test = [ 
+  "./test/ares-test-main.cc",
+  "./test/ares-test.cc",
+  "./test/ares-test-ns.cc",
+  "./test/ares-test-parse.cc",
+  "./test/ares-test-parse-a.cc",
+  "./test/ares-test-parse-aaaa.cc",
+  "./test/ares-test-parse-caa.cc",
+  "./test/ares-test-parse-mx.cc",
+  "./test/ares-test-parse-naptr.cc",
+  "./test/ares-test-parse-ns.cc",
+  "./test/ares-test-parse-ptr.cc",
+  "./test/ares-test-parse-soa.cc",
+  "./test/ares-test-parse-soa-any.cc",
+  "./test/ares-test-parse-srv.cc",
+  "./test/ares-test-parse-txt.cc",
+  "./test/ares-test-parse-uri.cc",
+  "./test/ares-test-misc.cc",
+  "./test/ares-test-mock.cc",
+  "./test/ares-test-internal.cc",
+  "./test/dns-proto.cc",
+  "./test/dns-proto-test.cc",
+  "./test/gmock-1.11.0/gmock-gtest-all.cc"
 ]
 
 src_path = "//third_party/cares"
-cares_path = root_out_dir + "/third_party_cares"
-code_dir = cares_path + "/c-ares-1.18.1"
+
+cares_log_path = rebase_path("$target_gen_dir")
+print("Install OpenEuler Cares, log path = $cares_log_path")
 
 action("installOpenEulerCares") {
-  print("Cares install")
   script = "install.sh"
-  args = [
-    rebase_path(src_path, root_build_dir),
-    rebase_path(cares_path, root_build_dir),
-  ]
+  args = [ "$cares_log_path" ]
   inputs = [ src_path ]
-  outputs = []
-  foreach(src, cares_srcs) {
-    outputs += [ "$code_dir/src/lib/" + src ]
-  }
-  foreach(test, sources_test) {
-    outputs += [ "$code_dir/" + test ]
-  }
+  outputs = [ "${root_out_dir}/obj/third_party/cares" ]
 }
 
 config("c_ares_config") {
@@ -135,18 +126,19 @@ ohos_shared_library("c_ares") {
   deps = [ ":installOpenEulerCares" ]
   sources = []
   foreach(src, cares_srcs) {
-    sources += [ "$code_dir/src/lib/" + src ]
+    sources += [ "$CARES_SOURCE_ROOT/src/lib/" + src ]
   }
 
-  public_configs = [ ":c_ares_config" ]
+  public_configs = [":c_ares_config"]
   defines = [ "CARES_SHAREDLIB" ]
 
   include_dirs = [
     "//third_party/cares/include",
-    "$code_dir",
-    "$code_dir/include",
+    "$CARES_SOURCE_ROOT",
+    "$CARES_SOURCE_ROOT/include",
   ]
 
+  # print("cares_target_os is $target_os")
   install_enable = true
   subsystem_name = "thirdparty"
   part_name = "cares"
@@ -156,15 +148,15 @@ ohos_static_library("c_ares_static") {
   deps = [ ":installOpenEulerCares" ]
   sources = []
   foreach(src, cares_srcs) {
-    sources += [ "$code_dir/src/lib/" + src ]
+    sources += [ "$CARES_SOURCE_ROOT/src/lib/" + src ]
   }
 
-  public_configs = [ ":c_ares_config" ]
+  public_configs = [":c_ares_config"]
 
   include_dirs = [
     "//third_party/cares/include",
-    "$code_dir",
-    "$code_dir/include",
+    "$CARES_SOURCE_ROOT",
+    "$CARES_SOURCE_ROOT/include",
   ]
   subsystem_name = "thirdparty"
   part_name = "cares"
@@ -173,19 +165,19 @@ ohos_static_library("c_ares_static") {
 ohos_executable("cares_test") {
   sources = []
   foreach(src, sources_test) {
-    sources += [ "$code_dir/" + src ]
+    sources += [ "$CARES_SOURCE_ROOT/" + src ]
   }
   deps = [
-    ":c_ares",
     ":installOpenEulerCares",
+    ":c_ares",
   ]
   include_dirs = [
     "//third_party/cares/include",
-    "$code_dir",
-    "$code_dir/src/lib",
-    "$code_dir/include",
-    "$code_dir/test",
-    "$code_dir/test/gmock-1.11.0",
+    "$CARES_SOURCE_ROOT",
+    "$CARES_SOURCE_ROOT/src/lib",
+    "$CARES_SOURCE_ROOT/include",
+    "$CARES_SOURCE_ROOT/test",
+    "$CARES_SOURCE_ROOT/test/gmock-1.11.0",
   ]
   subsystem_name = "thirdparty"
   part_name = "cares"
