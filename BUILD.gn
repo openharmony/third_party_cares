@@ -133,6 +133,10 @@ config("c_ares_config") {
 }
 ohos_shared_library("c_ares") {
   deps = [ ":installOpenEulerCares" ]
+  install_images = [
+    "updater",
+    "system",
+  ]
   sources = []
   foreach(src, cares_srcs) {
     sources += [ "$code_dir/src/lib/" + src ]
