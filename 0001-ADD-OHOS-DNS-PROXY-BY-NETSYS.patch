@@ -18,7 +18,7 @@ index 0a0225a..563940f 100644
    unsigned short port = 0;
    int family;
 diff --git a/src/lib/ares_init.c b/src/lib/ares_init.c
-index e8902c6..2bf28fa 100644
+index e8902c6..24642ff 100644
 --- a/src/lib/ares_init.c
 +++ b/src/lib/ares_init.c
 @@ -58,6 +58,64 @@
@@ -86,14 +86,23 @@ index e8902c6..2bf28fa 100644
  static int init_by_options(ares_channel channel,
                             const struct ares_options *options,
                             int optmask);
-@@ -1720,6 +1778,39 @@ static int init_by_resolv_conf(ares_channel channel)
-       resolvconf_path = PATH_RESOLV_CONF;
-     }
- 
+@@ -1705,6 +1763,11 @@ static int init_by_resolv_conf(ares_channel channel)
+     int error;
+     int update_domains;
+     const char *resolvconf_path;
 +#if OHOS_DNS_PROXY_BY_NETSYS
 +    int netid = 0;
 +    int status_each = -1;
 +    GetConfig func = NULL;
++#endif
+ 
+     /* Don't read resolv.conf and friends if we don't have to */
+     if (ARES_CONFIG_CHECK(channel))
+@@ -1720,6 +1783,36 @@ static int init_by_resolv_conf(ares_channel channel)
+       resolvconf_path = PATH_RESOLV_CONF;
+     }
+ 
++#if OHOS_DNS_PROXY_BY_NETSYS
 +    *(void **) &func = load_from_dns_lib(OHOS_GET_CONFIG_FUNC_NAME);
 +    if (!func) {
 +      DNS_CONFIG_PRINT("%s: loading %s failed, use %s as a fallback",
@@ -126,7 +135,7 @@ index e8902c6..2bf28fa 100644
      fp = fopen(resolvconf_path, "r");
      if (fp) {
        while ((status = ares__read_line(fp, &line, &linesize)) == ARES_SUCCESS)
-@@ -1866,7 +1957,9 @@ static int init_by_resolv_conf(ares_channel channel)
+@@ -1866,7 +1959,9 @@ static int init_by_resolv_conf(ares_channel channel)
          ares_free(sortlist);
        return status;
      }
