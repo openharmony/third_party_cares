@@ -18,7 +18,7 @@ index 0a0225a..563940f 100644
    unsigned short port = 0;
    int family;
 diff --git a/src/lib/ares_init.c b/src/lib/ares_init.c
-index e8902c6..59ca139 100644
+index e8902c6..2bf28fa 100644
 --- a/src/lib/ares_init.c
 +++ b/src/lib/ares_init.c
 @@ -58,6 +58,64 @@
@@ -78,7 +78,7 @@ index e8902c6..59ca139 100644
 +  if (sym_addr == NULL) {
 +    DNS_CONFIG_PRINT("%s: loading symbol %s with dlsym failed: %s",
 +      __func__, symbol, dlerror());
-+}
++  }
 +  return sym_addr;
 +}
 +#endif
@@ -86,12 +86,13 @@ index e8902c6..59ca139 100644
  static int init_by_options(ares_channel channel,
                             const struct ares_options *options,
                             int optmask);
-@@ -1720,6 +1778,35 @@ static int init_by_resolv_conf(ares_channel channel)
+@@ -1720,6 +1778,39 @@ static int init_by_resolv_conf(ares_channel channel)
        resolvconf_path = PATH_RESOLV_CONF;
      }
  
 +#if OHOS_DNS_PROXY_BY_NETSYS
 +    int netid = 0;
++    int status_each = -1;
 +    GetConfig func = NULL;
 +    *(void **) &func = load_from_dns_lib(OHOS_GET_CONFIG_FUNC_NAME);
 +    if (!func) {
@@ -110,7 +111,10 @@ index e8902c6..59ca139 100644
 +      if (config.nameservers[i] == NULL || config.nameservers[i][0] == 0) {
 +        continue;
 +      }
-+      status = config_nameserver(&servers, &nservers, config.nameservers[i]);
++      status_each = config_nameserver(&servers, &nservers, config.nameservers[i]);
++      if (status_each == ARES_SUCCESS) {
++        status = ARES_SUCCESS;
++      }
 +    }
 +
 +    if (status == ARES_SUCCESS && nservers > 0) {
@@ -122,7 +126,7 @@ index e8902c6..59ca139 100644
      fp = fopen(resolvconf_path, "r");
      if (fp) {
        while ((status = ares__read_line(fp, &line, &linesize)) == ARES_SUCCESS)
-@@ -1866,7 +1953,9 @@ static int init_by_resolv_conf(ares_channel channel)
+@@ -1866,7 +1957,9 @@ static int init_by_resolv_conf(ares_channel channel)
          ares_free(sortlist);
        return status;
      }
