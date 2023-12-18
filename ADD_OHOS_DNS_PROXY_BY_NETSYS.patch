@@ -127,7 +127,7 @@ index e8902c6..39ac1cc 100644
      if (fp) {
        while ((status = ares__read_line(fp, &line, &linesize)) == ARES_SUCCESS)
 @@ -1866,7 +1955,9 @@ static int init_by_resolv_conf(ares_channel channel)
-         ares_free(sortlist);
+       ares_free(sortlist);
        return status;
      }
 -
