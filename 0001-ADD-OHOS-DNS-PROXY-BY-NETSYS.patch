@@ -1,22 +1,32 @@
 diff --git a/src/lib/ares_getaddrinfo.c b/src/lib/ares_getaddrinfo.c
-index 0a0225a..563940f 100644
+index 0a0225a..d7d3a36 100644
 --- a/src/lib/ares_getaddrinfo.c
 +++ b/src/lib/ares_getaddrinfo.c
-@@ -578,6 +578,14 @@ void ares_getaddrinfo(ares_channel channel,
+@@ -578,6 +578,10 @@ void ares_getaddrinfo(ares_channel channel,
                        const struct ares_addrinfo_hints* hints,
                        ares_addrinfo_callback callback, void* arg)
  {
 +#if OHOS_DNS_PROXY_BY_NETSYS
 +  struct addrinfo hint;
 +  struct addrinfo *res;
++#endif
+   struct host_query *hquery;
+   unsigned short port = 0;
+   int family;
+@@ -585,6 +589,13 @@ void ares_getaddrinfo(ares_channel channel,
+   char *alias_name = NULL;
+   int status;
+ 
++#if OHOS_DNS_PROXY_BY_NETSYS
 +  memset(&hint, 0, sizeof(hint));
 +  hint.ai_family = hints->ai_family;
 +  hint.ai_socktype = hints->ai_socktype;
 +  getaddrinfo(name, service, &hint, &res);
 +#endif
-   struct host_query *hquery;
-   unsigned short port = 0;
-   int family;
++
+   if (!hints)
+     {
+       hints = &default_hints;
 diff --git a/src/lib/ares_init.c b/src/lib/ares_init.c
 index e8902c6..24642ff 100644
 --- a/src/lib/ares_init.c
