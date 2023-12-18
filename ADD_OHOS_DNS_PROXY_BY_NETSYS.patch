@@ -11,9 +11,9 @@ index 0a0225a..6b00c6e 100644
 +    struct addrinfo hint;
 +    struct addrinfo *res;
 +    memset(&hint, 0, sizeof(hint));
-+    hint.ai_family = 0;
-+    hint.ai_socktype = 1;
-+    hint.ai_flags = 0;
++    hint.ai_family = hints->ai_family;
++    hint.ai_socktype = hints->ai_socktype;
++
 +   getaddrinfo(name, service, &hint, &res);
 +#endif
    struct host_query *hquery;
