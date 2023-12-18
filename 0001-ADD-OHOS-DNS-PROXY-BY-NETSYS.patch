@@ -18,10 +18,10 @@ index 0a0225a..563940f 100644
    unsigned short port = 0;
    int family;
 diff --git a/src/lib/ares_init.c b/src/lib/ares_init.c
-index e8902c6..b78c401 100644
+index e8902c6..59ca139 100644
 --- a/src/lib/ares_init.c
 +++ b/src/lib/ares_init.c
-@@ -58,6 +58,65 @@
+@@ -58,6 +58,64 @@
  #undef WIN32  /* Redefined in MingW/MSVC headers */
  #endif
  
@@ -42,7 +42,6 @@ index e8902c6..b78c401 100644
 +#define OHOS_GET_CONFIG_FUNC_NAME "NetSysGetResolvConf"
 +#define MAX_SERVER_NUM 4
 +#define MAX_SERVER_LENGTH 50
-+#define EAI_NONAME     -2
 +
 +struct resolv_config {
 +  int32_t error;
@@ -87,7 +86,7 @@ index e8902c6..b78c401 100644
  static int init_by_options(ares_channel channel,
                             const struct ares_options *options,
                             int optmask);
-@@ -1720,6 +1779,35 @@ static int init_by_resolv_conf(ares_channel channel)
+@@ -1720,6 +1778,35 @@ static int init_by_resolv_conf(ares_channel channel)
        resolvconf_path = PATH_RESOLV_CONF;
      }
  
@@ -104,7 +103,7 @@ index e8902c6..b78c401 100644
 +    int ret = func(netid, &config);
 +    if (ret < 0) {
 +      DNS_CONFIG_PRINT("__get_resolv_conf OHOS_GET_CONFIG_FUNC_NAME err %d\n", ret);
-+      return EAI_NONAME;
++      return ARES_ENONAME;
 +    }
 +
 +    for (int i = 0; i < MAX_SERVER_NUM; ++i) {
@@ -123,7 +122,7 @@ index e8902c6..b78c401 100644
      fp = fopen(resolvconf_path, "r");
      if (fp) {
        while ((status = ares__read_line(fp, &line, &linesize)) == ARES_SUCCESS)
-@@ -1866,7 +1954,9 @@ static int init_by_resolv_conf(ares_channel channel)
+@@ -1866,7 +1953,9 @@ static int init_by_resolv_conf(ares_channel channel)
          ares_free(sortlist);
        return status;
      }
