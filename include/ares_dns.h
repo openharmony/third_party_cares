@@ -50,7 +50,7 @@
                               ((p)[2] = (unsigned char)(((v) >> 8) & 0xff)), \
                               ((p)[3] = (unsigned char)((v) & 0xff)))
 
-#if 0
+#ifdef  DNS_NOT_16BIT_OR_32BIT
 /* we cannot use this approach on systems where we can't access 16/32 bit
    data on un-aligned addresses */
 #define DNS__16BIT(p)                   ntohs(*(unsigned short*)(p))

@@ -208,15 +208,14 @@ extern "C" {
                       ARES_AI_ADDRCONFIG)
 #define ARES_GETSOCK_MAXNUM 16 /* ares_getsock() can return info about this
                                   many sockets */
-#define ARES_GETSOCK_READABLE(bits,num) (bits & (1<< (num)))
-#define ARES_GETSOCK_WRITABLE(bits,num) (bits & (1 << ((num) + \
-                                         ARES_GETSOCK_MAXNUM)))
+#define ARES_GETSOCK_READABLE(bits,num) ((bits) & (1 << (num)))
+#define ARES_GETSOCK_WRITABLE(bits,num) ((bits) & (1 << ((num) + \
+                                         (ARES_GETSOCK_MAXNUM))))
 
 /* c-ares library initialization flag values */
 #define ARES_LIB_INIT_NONE   (0)
 #define ARES_LIB_INIT_WIN32  (1 << 0)
 #define ARES_LIB_INIT_ALL    (ARES_LIB_INIT_WIN32)
-
 
 /*
  * Typedef our socket type
@@ -228,7 +227,7 @@ typedef SOCKET ares_socket_t;
 #define ARES_SOCKET_BAD INVALID_SOCKET
 #else
 typedef int ares_socket_t;
-#define ARES_SOCKET_BAD -1
+#define ARES_SOCKET_BAD     (-1)
 #endif
 #define ares_socket_typedef
 #endif /* ares_socket_typedef */
@@ -675,8 +674,8 @@ CARES_EXTERN int ares_parse_srv_reply(const unsigned char* abuf,
                                       struct ares_srv_reply** srv_out);
 
 CARES_EXTERN int ares_parse_mx_reply(const unsigned char* abuf,
-                                      int alen,
-                                      struct ares_mx_reply** mx_out);
+                                     int alen,
+                                     struct ares_mx_reply** mx_out);
 
 CARES_EXTERN int ares_parse_txt_reply(const unsigned char* abuf,
                                       int alen,
@@ -691,8 +690,8 @@ CARES_EXTERN int ares_parse_naptr_reply(const unsigned char* abuf,
                                         struct ares_naptr_reply** naptr_out);
 
 CARES_EXTERN int ares_parse_soa_reply(const unsigned char* abuf,
-				      int alen,
-				      struct ares_soa_reply** soa_out);
+                                      int alen,
+                                      struct ares_soa_reply** soa_out);
 
 CARES_EXTERN int ares_parse_uri_reply(const unsigned char* abuf,
                                       int alen,
