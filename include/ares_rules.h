@@ -77,9 +77,9 @@
  * Macros private to this header file.
  */
 
-#define CareschkszEQ(t, s) sizeof(t) == s ? 1 : -1
+#define CareschkszEQ(t, s) (sizeof(t) == (s) ? (1) : (-1))
 
-#define CareschkszGE(t1, t2) sizeof(t1) >= sizeof(t2) ? 1 : -1
+#define CareschkszGE(t1, t2) (sizeof(t1) >= sizeof(t2) ? (1) : (-1))
 
 /*
  * Verify that the size previously defined and expected for

@@ -1,3 +1,5 @@
+#ifndef ARES_CONFIG_H
+#define ARES_CONFIG_H
 /*
  * Copyright (C) 2022 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -516,3 +518,5 @@
 
 /* Define to `unsigned int' if <sys/types.h> does not define. */
 /* #undef size_t */
+
+#endif /* ARES_CONFIG_H */

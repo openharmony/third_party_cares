@@ -8,8 +8,8 @@
 #define ARES_VERSION_MAJOR 1
 #define ARES_VERSION_MINOR 18
 #define ARES_VERSION_PATCH 1
-#define ARES_VERSION ((ARES_VERSION_MAJOR<<16)|\
-                       (ARES_VERSION_MINOR<<8)|\
+#define ARES_VERSION ((ARES_VERSION_MAJOR << 16) | \
+                       (ARES_VERSION_MINOR << 8) | \
                        (ARES_VERSION_PATCH))
 #define ARES_VERSION_STR "1.18.1"
 
