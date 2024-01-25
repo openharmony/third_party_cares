@@ -1,7 +1,5 @@
-#ifndef ARES_CONFIG_H
-#define ARES_CONFIG_H
 /*
- * Copyright (C) 2022 Huawei Device Co., Ltd.
+ * Copyright (C) 2022-2024 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -14,6 +12,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#ifndef ARES_CONFIG_H
+#define ARES_CONFIG_H
 
 /* src/lib/ares_config.h.  Generated from ares_config.h.in by configure.  */
 /* src/lib/ares_config.h.in.  Generated from configure.ac by autoheader.  */
