@@ -33,6 +33,13 @@
                         "header_files": [],
                         "header_base": "//third_party/cares/include"
                     }
+                },
+                {
+                    "name":"//third_party/cares:c_ares_static",
+                    "header":{
+                        "header_files":[],
+                        "header_base":"//third_party/cares/include"
+                    }
                 }
             ],
             "test": []
