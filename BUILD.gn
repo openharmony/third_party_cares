@@ -124,6 +124,7 @@ action("installOpenEulerCares") {
 }
 
 config("c_ares_config") {
+  include_dirs = [ "//third_party/cares/include" ]
   cflags = [
     "-D_GNU_SOURCE",
     "-D_HAS_EXCEPTIONS=0",
