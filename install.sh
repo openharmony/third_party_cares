@@ -46,6 +46,7 @@ _all_patchs=(
     "backport-005-CVE-2023-31147.patch"
     "backport-CVE-2023-31124.patch"
     "0001-ADD-OHOS-DNS-PROXY-BY-NETSYS.patch"
+    "0002-ADD-OHOS-IPV6-PROXY-BY-NETSYS.patch"
 )
 for filename in "${_all_patchs[@]}"
   do
