@@ -68,13 +68,13 @@ index 0a0225a..4c3668e 100644
 +#if OHOS_DNS_PROXY_BY_NETSYS
 +  JudgeIpv6 func = load_ipv6_judger();
 +  if (!func) {
-+    return -1;
++    return 0;
 +  }
 +
 +  uint16_t netid = 0;
 +  ret = func(netid);
 +  if (ret < 0) {
-+    return -1;
++    return 0;
 +  }
 +#endif
 +  return ret;
