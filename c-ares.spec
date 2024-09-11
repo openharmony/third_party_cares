@@ -22,6 +22,7 @@ Patch9:         backport-003-CVE-2023-31147.patch
 Patch10:        backport-004-CVE-2023-31147.patch
 Patch11:        backport-005-CVE-2023-31147.patch
 Patch12:        backport-CVE-2023-31124.patch
+Patch13:        backport-CVE-2024-25629.patch
 
 %description
 This is c-ares, an asynchronous resolver library. It is intended for applications
