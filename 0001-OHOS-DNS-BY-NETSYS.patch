@@ -1,0 +1,317 @@
+diff --git a/src/lib/ares_getaddrinfo.c b/src/lib/ares_getaddrinfo.c
+index 0a0225a..4019693 100644
+--- a/src/lib/ares_getaddrinfo.c
++++ b/src/lib/ares_getaddrinfo.c
+@@ -113,6 +113,196 @@ static int as_is_first(const struct host_query *hquery);
+ static int as_is_only(const struct host_query* hquery);
+ static int next_dns_lookup(struct host_query *hquery);
+
++#if OHOS_DNS_PROXY_BY_NETSYS
++#define MAX_RESULTS 32
++#define MAX_CANON_NAME 256
++
++typedef union {
++    struct sockaddr sa;
++    struct sockaddr_in6 sin6;
++    struct sockaddr_in sin;
++} ares_align_sock_addr;
++
++typedef struct {
++    uint32_t ai_flags;
++    uint32_t ai_family;
++    uint32_t ai_socktype;
++    uint32_t ai_protocol;
++    uint32_t ai_addrlen;
++    ares_align_sock_addr ai_addr;
++    char ai_canonName[MAX_CANON_NAME + 1];
++} ares_cached_addrinfo;
++
++typedef struct {
++    char *host;
++    char *serv;
++    struct addrinfo *hint;
++} ares_cache_key_param_wrapper;
++
++int32_t NetSysSetResolvCache(uint16_t netid, ares_cache_key_param_wrapper param, struct addrinfo *res);
++
++int32_t NetSysGetResolvCache(uint16_t netid, ares_cache_key_param_wrapper param,
++                             ares_cached_addrinfo cached_addrinfo[static MAX_RESULTS], uint32_t *num);
++
++void ares_addrinfo_hints_to_addrinfo(const struct ares_addrinfo_hints *hints, struct addrinfo *out_hints) {
++  if (hints == NULL || out_hints == NULL) {
++    return;
++  }
++  memset(out_hints, 0, sizeof(struct addrinfo));
++  out_hints->ai_flags = hints->ai_flags;
++  out_hints->ai_family = hints->ai_family;
++  out_hints->ai_socktype = hints->ai_socktype;
++  out_hints->ai_protocol = hints->ai_protocol;
++}
++
++void ares_free_posix_addrinfo(struct addrinfo *head) {
++  while (head != NULL) {
++    struct addrinfo *current = head;
++    head = head->ai_next;
++    if (current->ai_addr) {
++      ares_free(current->ai_addr);
++    }
++    ares_free(current);
++  }
++}
++
++struct addrinfo *ares_addrinfo_to_addrinfo(const struct ares_addrinfo *res) {
++  if (res == NULL) {
++    return NULL;
++  }
++
++  struct addrinfo *head_res = ares_malloc(sizeof(struct addrinfo));
++  if (head_res == NULL) {
++    return NULL;
++  }
++  memset(head_res, 0, sizeof(struct addrinfo));
++
++  struct addrinfo *now_node = head_res;
++  for (struct ares_addrinfo_node *tmp = res->nodes; tmp != NULL; tmp = tmp->ai_next) {
++    if (tmp->ai_addrlen > sizeof(ares_align_sock_addr)) {
++      continue;
++    }
++    struct addrinfo *next_node = ares_malloc(sizeof(struct addrinfo));
++    if (next_node == NULL) {
++      ares_free_posix_addrinfo(head_res);
++      return NULL;
++    }
++    memset(next_node, 0, sizeof(struct addrinfo));
++    now_node->ai_next = next_node;
++    now_node = next_node;
++
++    next_node->ai_flags = tmp->ai_flags;
++    next_node->ai_family = tmp->ai_family;
++    next_node->ai_socktype = tmp->ai_socktype;
++    next_node->ai_protocol = tmp->ai_protocol;
++    next_node->ai_addrlen = tmp->ai_addrlen;
++    next_node->ai_addr = ares_malloc(sizeof(ares_align_sock_addr));
++    if (next_node->ai_addr == NULL) {
++      ares_free_posix_addrinfo(head_res);
++      return NULL;
++    }
++    memset(next_node->ai_addr, 0, sizeof(ares_align_sock_addr));
++    memcpy(next_node->ai_addr, tmp->ai_addr, tmp->ai_addrlen);
++  }
++  struct addrinfo *out_res = head_res->ai_next;
++  ares_free(head_res);
++  return out_res;
++}
++
++struct ares_addrinfo *
++ares_cached_addrinfo_to_ares_addrinfo(const ares_cached_addrinfo cached_addrinfo[static MAX_RESULTS], uint32_t num) {
++  uint32_t real_num = num > MAX_RESULTS ? MAX_RESULTS : num;
++  if (num == 0) {
++    return NULL;
++  }
++
++  struct ares_addrinfo_node *head_res = ares_malloc(sizeof(struct ares_addrinfo_node));
++  if (head_res == NULL) {
++    return NULL;
++  }
++  memset(head_res, 0, sizeof(struct ares_addrinfo_node));
++
++  struct ares_addrinfo_node *now_node = head_res;
++  for (uint32_t i = 0; i < real_num; ++i) {
++    if (cached_addrinfo[i].ai_addrlen > sizeof(ares_align_sock_addr)) {
++      continue;
++    }
++
++    struct ares_addrinfo_node *next_node = ares_malloc(sizeof(struct ares_addrinfo_node));
++    if (next_node == NULL) {
++      ares__freeaddrinfo_nodes(head_res);
++      return NULL;
++    }
++    memset(next_node, 0, sizeof(struct addrinfo));
++    now_node->ai_next = next_node;
++    now_node = next_node;
++
++    next_node->ai_flags = (int) cached_addrinfo[i].ai_flags;
++    next_node->ai_family = (int) cached_addrinfo[i].ai_family;
++    next_node->ai_socktype = (int) cached_addrinfo[i].ai_socktype;
++    next_node->ai_protocol = (int) cached_addrinfo[i].ai_protocol;
++    next_node->ai_addrlen = (ares_socklen_t) cached_addrinfo[i].ai_addrlen;
++    next_node->ai_addr = ares_malloc(sizeof(ares_align_sock_addr));
++    if (next_node->ai_addr == NULL) {
++      ares__freeaddrinfo_nodes(head_res);
++      return NULL;
++    }
++    memset(next_node->ai_addr, 0, sizeof(ares_align_sock_addr));
++    memcpy(next_node->ai_addr, &cached_addrinfo[i].ai_addr, cached_addrinfo[i].ai_addrlen);
++  }
++  struct ares_addrinfo *info = ares_malloc(sizeof(struct ares_addrinfo));
++  if (info == NULL) {
++    ares__freeaddrinfo_nodes(head_res);
++    return NULL;
++  }
++  memset(info, 0, sizeof(struct ares_addrinfo));
++
++  info->nodes = head_res->ai_next;
++  ares_free(head_res);
++  return info;
++}
++
++struct ares_addrinfo *
++ares_get_dns_cache(const char *host, const char *service, const struct ares_addrinfo_hints *hints) {
++  ares_cache_key_param_wrapper param = {0};
++  param.host = (char *) host;
++  param.serv = (char *) service;
++  struct addrinfo hint = {0};
++  ares_addrinfo_hints_to_addrinfo(hints, &hint);
++  param.hint = &hint;
++
++  ares_cached_addrinfo cached_addrinfo[MAX_RESULTS] = {0};
++  memset(cached_addrinfo, 0, sizeof(ares_cached_addrinfo) * MAX_RESULTS);
++  uint32_t num = 0;
++  if (NetSysGetResolvCache(0, param, cached_addrinfo, &num) != 0) {
++    return NULL;
++  }
++  if (num == 0) {
++    return NULL;
++  }
++  return ares_cached_addrinfo_to_ares_addrinfo(cached_addrinfo, num);
++}
++
++void ares_set_dns_cache(const char *host, const char *service, const struct ares_addrinfo_hints *hints,
++                        const struct ares_addrinfo *res) {
++  ares_cache_key_param_wrapper param = {0};
++  param.host = (char *) host;
++  param.serv = (char *) service;
++  struct addrinfo hint = {0};
++  ares_addrinfo_hints_to_addrinfo(hints, &hint);
++  param.hint = &hint;
++
++  struct addrinfo *posix_res = ares_addrinfo_to_addrinfo(res);
++  if (!posix_res) {
++    return;
++  }
++
++  NetSysSetResolvCache(0, param, posix_res);
++  ares_free_posix_addrinfo(posix_res);
++}
++
++#endif
++
+ struct ares_addrinfo_cname *ares__malloc_addrinfo_cname()
+ {
+   struct ares_addrinfo_cname *cname = ares_malloc(sizeof(struct ares_addrinfo_cname));
+@@ -399,6 +589,11 @@ static void end_hquery(struct host_query *hquery, int status)
+       hquery->ai = NULL;
+     }
+
++#if OHOS_DNS_PROXY_BY_NETSYS
++  char serv[12] = {0};
++  sprintf(serv, "%d", hquery->port);
++  ares_set_dns_cache(hquery->name, serv, &hquery->hints, hquery->ai);
++#endif
+   hquery->callback(hquery->arg, status, hquery->timeouts, hquery->ai);
+   ares_free(hquery->name);
+   ares_free(hquery);
+@@ -578,6 +773,13 @@ void ares_getaddrinfo(ares_channel channel,
+                       const struct ares_addrinfo_hints* hints,
+                       ares_addrinfo_callback callback, void* arg)
+ {
++#if OHOS_DNS_PROXY_BY_NETSYS
++  struct ares_addrinfo *cache_res = ares_get_dns_cache(name, service, hints);
++  if (cache_res && cache_res->nodes) {
++    callback(arg, ARES_SUCCESS, 0, cache_res);
++    return;
++  }
++#endif
+   struct host_query *hquery;
+   unsigned short port = 0;
+   int family;
+diff --git a/src/lib/ares_init.c b/src/lib/ares_init.c
+index de5d86c..7644e71 100644
+--- a/src/lib/ares_init.c
++++ b/src/lib/ares_init.c
+@@ -58,6 +58,20 @@
+ #undef WIN32  /* Redefined in MingW/MSVC headers */
+ #endif
+
++#if OHOS_DNS_PROXY_BY_NETSYS
++#define MAX_SERVER_NUM 5
++#define MAX_SERVER_LENGTH 50
++
++struct resolv_config {
++  int32_t error;
++  int32_t timeout_ms;
++  uint32_t retry_count;
++  char nameservers[MAX_SERVER_NUM][MAX_SERVER_LENGTH + 1];
++};
++
++int32_t NetSysGetResolvConf(uint16_t netid, struct resolv_config *config);
++#endif
++
+ static int init_by_options(ares_channel channel,
+                            const struct ares_options *options,
+                            int optmask);
+@@ -1699,6 +1713,11 @@ static int init_by_resolv_conf(ares_channel channel)
+     int error;
+     int update_domains;
+     const char *resolvconf_path;
++#if OHOS_DNS_PROXY_BY_NETSYS
++    int netid = 0;
++    int ret = 0;
++    int status_each = -1;
++#endif
+
+     /* Don't read resolv.conf and friends if we don't have to */
+     if (ARES_CONFIG_CHECK(channel))
+@@ -1714,6 +1733,28 @@ static int init_by_resolv_conf(ares_channel channel)
+       resolvconf_path = PATH_RESOLV_CONF;
+     }
+
++#if OHOS_DNS_PROXY_BY_NETSYS
++    struct resolv_config config = {0};
++    ret = NetSysGetResolvConf(netid, &config);
++    if (ret < 0) {
++      return ARES_ENONAME;
++    }
++
++    for (int i = 0; i < MAX_SERVER_NUM; ++i) {
++      if (config.nameservers[i] == NULL || config.nameservers[i][0] == 0) {
++        continue;
++      }
++      status_each = config_nameserver(&servers, &nservers, config.nameservers[i]);
++      if (status_each == ARES_SUCCESS) {
++        status = ARES_SUCCESS;
++      }
++    }
++
++    if (status == ARES_SUCCESS && nservers > 0) {
++      goto get_conf_ok;
++    }
++
++#endif
+     fp = fopen(resolvconf_path, "r");
+     if (fp) {
+       while ((status = ares__read_line(fp, &line, &linesize)) == ARES_SUCCESS)
+@@ -1860,7 +1901,9 @@ static int init_by_resolv_conf(ares_channel channel)
+         ares_free(sortlist);
+       return status;
+     }
+-
++#if OHOS_DNS_PROXY_BY_NETSYS
++get_conf_ok:
++#endif
+   /* If we got any name server entries, fill them in. */
+   if (servers)
+     {
+diff --git a/src/lib/ares_process.c b/src/lib/ares_process.c
+index 87329e3..026489e 100644
+--- a/src/lib/ares_process.c
++++ b/src/lib/ares_process.c
+@@ -629,7 +629,7 @@ static void process_answer(ares_channel channel, unsigned char *abuf,
+    * don't accept the packet, and switch the query to TCP if we hadn't
+    * done so already.
+    */
+-  if ((tc || alen > packetsz) && !tcp && !(channel->flags & ARES_FLAG_IGNTC))
++  if (tc && !tcp && !(channel->flags & ARES_FLAG_IGNTC))
+     {
+       if (!query->using_tcp)
+         {

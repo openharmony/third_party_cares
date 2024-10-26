@@ -155,6 +155,7 @@ ohos_shared_library("c_ares") {
     "$code_dir/include",
   ]
 
+  external_deps = [ "netmanager_base:netsys_client" ]
   install_enable = true
   subsystem_name = "thirdparty"
   part_name = "cares"
@@ -174,6 +175,8 @@ ohos_static_library("c_ares_static") {
     "$code_dir",
     "$code_dir/include",
   ]
+
+  external_deps = [ "netmanager_base:netsys_client" ]
   subsystem_name = "thirdparty"
   part_name = "cares"
 }
