@@ -21,9 +21,7 @@
         "rom": "",
         "ram": "",
         "deps": {
-            "components": [
-                "netmanager_base"
-            ],
+            "components": [],
             "third_party": []
         },
         "build": {
