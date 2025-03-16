@@ -8,29 +8,24 @@ index 605e5f8..f07d7b3 100644
    struct list_node* list_node;
 +  int rr_type, rr_class, rr_len, status;
 +  const unsigned char *aptr;
-+  unsigned int qdcount, ancount, i;
++  unsigned int ancount, i;
 +  char *hostname = NULL, *rr_name = NULL;
 +  long len;
 +  int acount = 0;
  
    /* If there's no room in the answer for a header, we can't do much
     * with it. */
-@@ -590,6 +596,14 @@ static void process_answer(ares_channel channel, unsigned char *abuf,
+@@ -590,6 +596,9 @@ static void process_answer(ares_channel channel, unsigned char *abuf,
    tc = DNS_HEADER_TC(abuf);
    rcode = DNS_HEADER_RCODE(abuf);
  
-+  /* Fetch the question and answer count from the header. */
-+  qdcount = DNS_HEADER_QDCOUNT(abuf);
++  /* Fetch the answer count from the header. */
 +  ancount = DNS_HEADER_ANCOUNT(abuf);
-+  if (qdcount != 1)
-+    return;
-+  if (ancount == 0)
-+    return;
 +
    /* Find the query corresponding to this packet. The queries are
     * hashed/bucketed by query id, so this lookup should be quick.  Note that
     * both the query id and the questions must be the same; when the query id
-@@ -654,12 +668,78 @@ static void process_answer(ares_channel channel, unsigned char *abuf,
+@@ -654,12 +663,78 @@ static void process_answer(ares_channel channel, unsigned char *abuf,
    if (alen > packetsz && !tcp)
        alen = packetsz;
  
