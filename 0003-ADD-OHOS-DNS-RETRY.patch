@@ -8,7 +8,7 @@ index 605e5f8..f07d7b3 100644
    struct list_node* list_node;
 +  int rr_type, rr_class, rr_len, status;
 +  const unsigned char *aptr;
-+  unsigned int qdcount, ancount, i;
++  unsigned int ancount, i;
 +  char *hostname = NULL, *rr_name = NULL;
 +  long len;
 +  int acount = 0;
