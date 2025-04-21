@@ -126,3 +126,25 @@ index 42323be..83e90dc 100644
  
    /* Send it off.  qcallback will be called when we get an answer. */
    ares_send(channel, qbuf, qlen, qcallback, qquery);
+diff --git a/src/lib/ares_getaddrinfo.c b/src/lib/ares_getaddrinfo.c
+index 628b240..a44c428 100644
+--- a/src/lib/ares_getaddrinfo.c
++++ b/src/lib/ares_getaddrinfo.c
+@@ -750,7 +750,17 @@ static void host_callback(void *arg, int status, int timeouts,
+         {
+           if (status == ARES_ENODATA || addinfostatus == ARES_ENODATA)
+             hquery->nodata_cnt++;
++#if OHOS_DNS_PROXY_BY_NETSYS
++          hquery->channel->last_server++;
++          if (hquery->channel->last_server < hquery->channel->nservers) {
++            hquery->next_domain = -1;
++            next_lookup(hquery, hquery->nodata_cnt?ARES_ENODATA:status);
++          } else {
++            end_hquery(hquery, ARES_ENODATA);
++          }
++#else
+           next_lookup(hquery, hquery->nodata_cnt?ARES_ENODATA:status);
++#endif
+         }
+       else if (status == ARES_EDESTRUCTION)
+         {
