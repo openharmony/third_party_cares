@@ -20,8 +20,8 @@ index e8902c6..3a5a5f5 100644
 +#endif
 +
 +#define DNS_SO_PATH "libnetsys_client.z.so"
-+#define OHOS_GET_CONFIG_FUNC_NAME "NetSysGetResolvConf"
-+#define MAX_SERVER_NUM 5
++#define OHOS_GET_CONFIG_FUNC_NAME "NetSysGetResolvConfExt"
++#define MAX_SERVER_NUM 8
 +#define MAX_SERVER_LENGTH 50
 +
 +struct resolv_config {
