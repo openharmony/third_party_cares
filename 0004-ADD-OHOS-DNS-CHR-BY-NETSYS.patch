@@ -582,3 +582,67 @@ index 8d50f6f..45dc910 100644
                            const unsigned char *abuf, int alen)
  {
    struct {
+diff --git a/src/lib/ares_getaddrinfo.c b/src/lib/ares_getaddrinfo.c
+index dd95d46..02106b8 100644
+--- a/src/lib/ares_getaddrinfo.c
++++ b/src/lib/ares_getaddrinfo.c
+@@ -841,10 +841,11 @@ static char *ares__get_server_addr(struct ares_addr *addr)
+   return ip_str;
+ }
+ 
+-int ares__get_src_addr(struct server_state *server, struct sockaddr *src_addr)
++struct sockaddr *ares__get_src_addr(struct server_state *server)
+ {
++  struct sockaddr *src_addr = NULL;
+   if (!server) {
+-    return -1;
++    return NULL;
+   }
+   struct ares_addr addr = server->addr;
+   ares_socklen_t len;
+@@ -858,7 +859,7 @@ int ares__get_src_addr(struct server_state *server, struct sockaddr *src_addr)
+       break;
+     default:
+       /* No known usable source address for non-INET families. */
+-      return -1;
++      return NULL;
+     }
+   int sock;
+   if (server->udp_socket > 0) {
+@@ -866,12 +867,14 @@ int ares__get_src_addr(struct server_state *server, struct sockaddr *src_addr)
+   } else if (server->tcp_socket > 0) {
+     sock = server->tcp_socket;
+   } else {
+-    return -1;
++    return NULL;
+   }
++  src_addr = ares_malloc(len);
+   if (getsockname(sock, src_addr, &len) != 0) {
+-    return -1;
++    ares_free(src_addr);
++    return NULL;
+   }
+-  return 0;
++  return src_addr;
+ }
+ 
+ static char *ares__get_addr_by_sockaddr(struct sockaddr *sa)
+@@ -928,15 +931,12 @@ void ares__parse_query_info(int status, unsigned char *abuf, int alen, struct ho
+     }
+     hquery->process_info.firstReturnType = type;
+   }
+-  struct sockaddr *src_addr = NULL;
++  struct sockaddr *src_addr = ares__get_src_addr(server);
+   char *res_addr = NULL;
+-  src_addr = ares_malloc(sizeof(struct sockaddr));
+   if (src_addr) {
+-    if (ares__get_src_addr(server, src_addr) == 0) {
+-      res_addr = ares__get_addr_by_sockaddr(src_addr);
+-    }
++    res_addr = ares__get_addr_by_sockaddr(src_addr);
++    ares_free(src_addr);
+   }
+-  ares_free(src_addr);
+   hquery->src_addr = res_addr;
+   struct ares_family_query_info info;
+   int isAnsAllCname = ares__ans_all_cname(abuf, alen);
