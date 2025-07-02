@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Huawei Device Co., Ltd.
+ * Copyright (C) 2022-2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -387,7 +387,7 @@
 #define PACKAGE_NAME "c-ares"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "c-ares 1.18.1"
+#define PACKAGE_STRING "c-ares 1.34.5"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "c-ares"
@@ -396,7 +396,7 @@
 #define PACKAGE_URL ""
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "1.18.1"
+#define PACKAGE_VERSION "1.34.5"
 
 /* Define to the type qualifier pointed by arg 5 for recvfrom. */
 #define RECVFROM_QUAL_ARG5 
@@ -478,7 +478,7 @@
 /* #undef USE_BLOCKING_SOCKETS */
 
 /* Version number of package */
-#define VERSION "1.18.1"
+#define VERSION "1.34.5"
 
 /* Define to avoid automatic inclusion of winsock.h */
 /* #undef WIN32_LEAN_AND_MEAN */

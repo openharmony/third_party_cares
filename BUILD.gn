@@ -12,26 +12,17 @@
 # limitations under the License.
 
 import("//build/ohos.gni")
-import("//third_party/cares/cares.gni")
 
 cares_srcs = [
-  "ares__addrinfo2hostent.c",
-  "ares__addrinfo_localhost.c",
-  "ares__close_sockets.c",
-  "ares__get_hostent.c",
-  "ares__parse_into_addrinfo.c",
-  "ares__read_line.c",
-  "ares__readaddrinfo.c",
-  "ares__sortaddrinfo.c",
-  "ares__timeval.c",
+  "ares_addrinfo2hostent.c",
+  "ares_addrinfo_localhost.c",
   "ares_android.c",
   "ares_cancel.c",
-  "ares_create_query.c",
+  "ares_close_sockets.c",
+  "ares_conn.c",
+  "ares_cookie.c",
   "ares_data.c",
   "ares_destroy.c",
-  "ares_expand_name.c",
-  "ares_expand_string.c",
-  "ares_fds.c",
   "ares_free_hostent.c",
   "ares_free_string.c",
   "ares_freeaddrinfo.c",
@@ -40,48 +31,92 @@ cares_srcs = [
   "ares_gethostbyaddr.c",
   "ares_gethostbyname.c",
   "ares_getnameinfo.c",
-  "ares_getsock.c",
+  "ares_hosts_file.c",
   "ares_init.c",
   "ares_library_init.c",
-  "ares_llist.c",
-  "ares_mkquery.c",
-  "ares_nowarn.c",
+  "ares_metrics.c",
   "ares_options.c",
-  "ares_parse_a_reply.c",
-  "ares_parse_aaaa_reply.c",
-  "ares_parse_caa_reply.c",
-  "ares_parse_mx_reply.c",
-  "ares_parse_naptr_reply.c",
-  "ares_parse_ns_reply.c",
-  "ares_parse_ptr_reply.c",
-  "ares_parse_soa_reply.c",
-  "ares_parse_srv_reply.c",
-  "ares_parse_txt_reply.c",
-  "ares_parse_uri_reply.c",
-  "ares_platform.c",
+  "ares_parse_into_addrinfo.c",
   "ares_process.c",
+  "ares_qcache.c",
   "ares_query.c",
-  "ares_rand.c",
   "ares_search.c",
   "ares_send.c",
-  "ares_strcasecmp.c",
-  "ares_strdup.c",
+  "ares_set_socket_functions.c",
+  "ares_socket.c",
+  "ares_sortaddrinfo.c",
   "ares_strerror.c",
-  "ares_strsplit.c",
+  "ares_sysconfig.c",
+  "ares_sysconfig_files.c",
+  "ares_sysconfig_mac.c",
+  "ares_sysconfig_win.c",
   "ares_timeout.c",
+  "ares_update_servers.c",
   "ares_version.c",
-  "ares_writev.c",
-  "bitncmp.c",
   "inet_net_pton.c",
   "inet_ntop.c",
   "windows_port.c",
+  "dsa/ares_array.c",
+  "dsa/ares_htable.c",
+  "dsa/ares_htable_asvp.c",
+  "dsa/ares_htable_dict.c",
+  "dsa/ares_htable_strvp.c",
+  "dsa/ares_htable_szvp.c",
+  "dsa/ares_htable_vpstr.c",
+  "dsa/ares_htable_vpvp.c",
+  "dsa/ares_llist.c",
+  "dsa/ares_slist.c",
+  "event/ares_event_configchg.c",
+  "event/ares_event_epoll.c",
+  "event/ares_event_kqueue.c",
+  "event/ares_event_poll.c",
+  "event/ares_event_select.c",
+  "event/ares_event_thread.c",
+  "event/ares_event_wake_pipe.c",
+  "event/ares_event_win32.c",
+  "legacy/ares_create_query.c",
+  "legacy/ares_expand_name.c",
+  "legacy/ares_expand_string.c",
+  "legacy/ares_fds.c",
+  "legacy/ares_getsock.c",
+  "legacy/ares_parse_a_reply.c",
+  "legacy/ares_parse_aaaa_reply.c",
+  "legacy/ares_parse_caa_reply.c",
+  "legacy/ares_parse_mx_reply.c",
+  "legacy/ares_parse_naptr_reply.c",
+  "legacy/ares_parse_ns_reply.c",
+  "legacy/ares_parse_ptr_reply.c",
+  "legacy/ares_parse_soa_reply.c",
+  "legacy/ares_parse_srv_reply.c",
+  "legacy/ares_parse_txt_reply.c",
+  "legacy/ares_parse_uri_reply.c",
+  "record/ares_dns_mapping.c",
+  "record/ares_dns_multistring.c",
+  "record/ares_dns_name.c",
+  "record/ares_dns_parse.c",
+  "record/ares_dns_record.c",
+  "record/ares_dns_write.c",
+  "str/ares_buf.c",
+  "str/ares_str.c",
+  "str/ares_strsplit.c",
+  "util/ares_iface_ips.c",
+  "util/ares_math.c",
+  "util/ares_rand.c",
+  "util/ares_threads.c",
+  "util/ares_timeval.c",
+  "util/ares_uri.c",
 ]
 
 sources_test = [
+  "test/ares-test-init.cc",
+  "test/ares-test-internal.cc",
+  "test/ares-test-live.cc",
   "test/ares-test-main.cc",
-  "test/ares-test.cc",
+  "test/ares-test-misc.cc",
+  "test/ares-test-mock-ai.cc",
+  "test/ares-test-mock-et.cc",
+  "test/ares-test-mock.cc",
   "test/ares-test-ns.cc",
-  "test/ares-test-parse.cc",
   "test/ares-test-parse-a.cc",
   "test/ares-test-parse-aaaa.cc",
   "test/ares-test-parse-caa.cc",
@@ -89,29 +124,27 @@ sources_test = [
   "test/ares-test-parse-naptr.cc",
   "test/ares-test-parse-ns.cc",
   "test/ares-test-parse-ptr.cc",
-  "test/ares-test-parse-soa.cc",
   "test/ares-test-parse-soa-any.cc",
+  "test/ares-test-parse-soa.cc",
   "test/ares-test-parse-srv.cc",
   "test/ares-test-parse-txt.cc",
   "test/ares-test-parse-uri.cc",
-  "test/ares-test-misc.cc",
-  "test/ares-test-mock.cc",
-  "test/ares-test-internal.cc",
-  "test/dns-proto.cc",
+  "test/ares-test-parse.cc",
+  "test/ares-test.cc",
+  "test/dns-dump.cc",
   "test/dns-proto-test.cc",
-  "test/gmock-1.11.0/gmock-gtest-all.cc",
+  "test/dns-proto.cc",
 ]
 
 src_path = "//third_party/cares"
-cares_path = root_out_dir + "/third_party_cares"
-code_dir = cares_path + "/c-ares-1.18.1"
+code_dir = root_out_dir + "/third_party_cares"
 
-action("installOpenEulerCares") {
+action("installCares") {
   print("Cares install")
   script = "install.sh"
   args = [
     rebase_path(src_path, root_build_dir),
-    rebase_path(cares_path, root_build_dir),
+    rebase_path(code_dir, root_build_dir),
   ]
   inputs = [ src_path ]
   outputs = []
@@ -133,7 +166,7 @@ config("c_ares_config") {
   ]
 }
 ohos_shared_library("c_ares") {
-  deps = [ ":installOpenEulerCares" ]
+  deps = [ ":installCares" ]
   install_images = [
     "updater",
     "system",
@@ -153,6 +186,8 @@ ohos_shared_library("c_ares") {
     "//third_party/cares/include",
     "$code_dir",
     "$code_dir/include",
+    "$code_dir/src/lib",
+    "$code_dir/src/lib/include",
   ]
 
   install_enable = true
@@ -161,7 +196,7 @@ ohos_shared_library("c_ares") {
 }
 
 ohos_static_library("c_ares_static") {
-  deps = [ ":installOpenEulerCares" ]
+  deps = [ ":installCares" ]
   sources = []
   foreach(src, cares_srcs) {
     sources += [ "$code_dir/src/lib/" + src ]
@@ -173,6 +208,8 @@ ohos_static_library("c_ares_static") {
     "//third_party/cares/include",
     "$code_dir",
     "$code_dir/include",
+    "$code_dir/src/lib",
+    "$code_dir/src/lib/include",
   ]
   subsystem_name = "thirdparty"
   part_name = "cares"
@@ -185,15 +222,15 @@ ohos_executable("cares_test") {
   }
   deps = [
     ":c_ares",
-    ":installOpenEulerCares",
+    ":installCares",
   ]
   include_dirs = [
     "//third_party/cares/include",
     "$code_dir",
     "$code_dir/src/lib",
     "$code_dir/include",
+    "$code_dir/src/lib/include",
     "$code_dir/test",
-    "$code_dir/test/gmock-1.11.0",
   ]
   subsystem_name = "thirdparty"
   part_name = "cares"
