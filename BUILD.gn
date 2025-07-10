@@ -178,9 +178,6 @@ ohos_shared_library("c_ares") {
 
   public_configs = [ ":c_ares_config" ]
   defines = [ "CARES_SHAREDLIB" ]
-  if (is_standard_system) {
-    defines += [ "OHOS_DNS_PROXY_BY_NETSYS=1" ]
-  }
 
   include_dirs = [
     "//third_party/cares/include",
