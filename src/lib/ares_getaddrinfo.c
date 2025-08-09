@@ -1040,8 +1040,8 @@ static void ares_getaddrinfo_int(ares_channel_t *channel, const char *name,
                                  const struct ares_addrinfo_hints *hints,
                                  ares_addrinfo_callback callback, void *arg)
 {
-  long long time_now = ares_get_now_time();
 #if OHOS_DNS_PROXY_BY_NETSYS
+  long long time_now = ares_get_now_time();
   struct ares_addrinfo *cache_res = ares_get_dns_cache(name, service, hints);
   if (cache_res && cache_res->nodes) {
     ares_record_process(ARES_SUCCESS, name, time_now, cache_res, NULL);
