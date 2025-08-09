@@ -1008,6 +1008,18 @@ static void host_callback(void *arg, ares_status_t status, size_t timeouts,
       if (status == ARES_ENODATA || addinfostatus == ARES_ENODATA) {
         hquery->nodata_cnt++;
       }
+#if OHOS_DNS_PROXY_BY_NETSYS
+      if (hquery->nodata_cnt < ares_slist_len(hquery->channel->servers) && hquery->nodata_cnt > 0) {
+        hquery->next_name_idx--;
+        ares_slist_node_t *node;
+        ares_server_t *server;
+        server = ares_slist_node_val(ares_slist_node_first(hquery->channel->servers));
+        server->consec_failures++;
+        node = ares_slist_node_find(hquery->channel->servers, server);
+        ares_slist_node_reinsert(node);
+        ares_qcache_flush(hquery->channel->qcache);
+      }
+#endif
       next_lookup(hquery, hquery->nodata_cnt ? ARES_ENODATA : status);
     } else if ((status == ARES_ESERVFAIL || status == ARES_EREFUSED) &&
                ares_name_label_cnt(hquery->names[hquery->next_name_idx - 1]) ==
