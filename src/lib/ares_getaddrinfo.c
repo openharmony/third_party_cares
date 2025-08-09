@@ -135,14 +135,6 @@ static const struct ares_family_query_info empty_family_query_info = {
   0,  /* cname */
 };
 
-int32_t NetSysSetResolvCache(uint16_t netid, ares_cache_key_param_wrapper param, struct addrinfo *res);
-
-int32_t NetSysGetResolvCache(uint16_t netid, ares_cache_key_param_wrapper param,
-                             ares_cached_addrinfo cached_addrinfo[static MAX_RESULTS], uint32_t *num);
-
-int32_t NetSysPostDnsQueryResult(uint16_t netid, struct addrinfo *addr, char *src_addr,
-                             struct ares_process_info *process_info);
-
 void ares_addrinfo_hints_to_addrinfo(const struct ares_addrinfo_hints *hints, struct addrinfo *out_hints) {
   if (hints == NULL || out_hints == NULL) {
     return;
@@ -248,7 +240,6 @@ void ares_record_process(int status, const char *hostname, long long start_time,
     process_info.firstQueryEndDuration = cost_time;
     process_info.firstReturnType = 0;
     struct addrinfo *addr = ares_addrinfo_to_addrinfo(addr_info);
-    NetSysPostDnsQueryResult(0, addr, NULL, &process_info);
     ares_free_posix_addrinfo(addr);
     ares_free(process_info.hostname);
   } else if (!hquery) {
@@ -258,7 +249,6 @@ void ares_record_process(int status, const char *hostname, long long start_time,
     process_info.retCode = status;
     process_info.firstQueryEndDuration = cost_time;
     process_info.firstReturnType = 0;
-    NetSysPostDnsQueryResult(0, NULL, NULL, &process_info);
     ares_free(process_info.hostname);
   } else if (hquery) {
     // query complete
@@ -266,7 +256,6 @@ void ares_record_process(int status, const char *hostname, long long start_time,
     process_info = hquery->process_info;
     process_info.isFromCache = 0;
     struct addrinfo *addr = ares_addrinfo_to_addrinfo(hquery->ai);
-    NetSysPostDnsQueryResult(0, addr, hquery->src_addr, &process_info);
     ares_free_posix_addrinfo(addr);
   }
 }
@@ -500,9 +489,6 @@ ares_get_dns_cache(const char *host, const char *service, const struct ares_addr
   ares_cached_addrinfo cached_addrinfo[MAX_RESULTS] = {0};
   memset(cached_addrinfo, 0, sizeof(ares_cached_addrinfo) * MAX_RESULTS);
   uint32_t num = 0;
-  if (NetSysGetResolvCache(0, param, cached_addrinfo, &num) != 0) {
-    return NULL;
-  }
   if (num == 0) {
     return NULL;
   }
@@ -522,8 +508,6 @@ void ares_set_dns_cache(const char *host, const char *service, const struct ares
   if (!posix_res) {
     return;
   }
- 
-  NetSysSetResolvCache(0, param, posix_res);
   ares_free_posix_addrinfo(posix_res);
 }
 #endif
