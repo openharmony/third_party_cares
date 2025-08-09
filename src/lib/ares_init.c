@@ -142,7 +142,11 @@ static ares_status_t init_by_defaults(ares_channel_t *channel)
   }
 
   if (channel->tries == 0) {
+#if OHOS_DNS_PROXY_BY_NETSYS
+    channel->tries = 2; // change default tries from 3 to 2
+#else
     channel->tries = DEFAULT_TRIES;
+#endif
   }
 
   if (ares_slist_len(channel->servers) == 0) {
