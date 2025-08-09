@@ -57,6 +57,7 @@
 #endif
 
 #include "ares_dns.h"
+#include "ares_llist.h"
 
 struct host_query {
   ares_channel_t            *channel;
@@ -84,6 +85,10 @@ struct host_query {
 
   /* Track nodata responses to possibly override final result */
   size_t                nodata_cnt;
+#if OHOS_DNS_PROXY_BY_NETSYS
+  char                  *src_addr;
+  struct ares_process_info process_info;
+#endif
 };
 
 static const struct ares_addrinfo_hints default_hints = {
@@ -95,6 +100,433 @@ static const struct ares_addrinfo_hints default_hints = {
 
 /* forward declarations */
 static ares_bool_t next_dns_lookup(struct host_query *hquery);
+
+#if OHOS_DNS_PROXY_BY_NETSYS
+#define MAX_RESULTS 32
+#define MAX_CANON_NAME 256
+#define SOURCE_FROM_CARES 2
+
+typedef union {
+    struct sockaddr sa;
+    struct sockaddr_in6 sin6;
+    struct sockaddr_in sin;
+} ares_align_sock_addr;
+
+typedef struct {
+    uint32_t ai_flags;
+    uint32_t ai_family;
+    uint32_t ai_socktype;
+    uint32_t ai_protocol;
+    uint32_t ai_addrlen;
+    ares_align_sock_addr ai_addr;
+    char ai_canonName[MAX_CANON_NAME + 1];
+} ares_cached_addrinfo;
+
+typedef struct {
+    char *host;
+    char *serv;
+    struct addrinfo *hint;
+} ares_cache_key_param_wrapper;
+
+static const struct ares_family_query_info empty_family_query_info = {
+  -1, /* retCode */
+  NULL, /* serverAddr */
+  1,  /* isNoAnswer */
+  0,  /* cname */
+};
+
+int32_t NetSysSetResolvCache(uint16_t netid, ares_cache_key_param_wrapper param, struct addrinfo *res);
+
+int32_t NetSysGetResolvCache(uint16_t netid, ares_cache_key_param_wrapper param,
+                             ares_cached_addrinfo cached_addrinfo[static MAX_RESULTS], uint32_t *num);
+
+int32_t NetSysPostDnsQueryResult(uint16_t netid, struct addrinfo *addr, char *src_addr,
+                             struct ares_process_info *process_info);
+
+void ares_addrinfo_hints_to_addrinfo(const struct ares_addrinfo_hints *hints, struct addrinfo *out_hints) {
+  if (hints == NULL || out_hints == NULL) {
+    return;
+  }
+  memset(out_hints, 0, sizeof(struct addrinfo));
+  out_hints->ai_flags = hints->ai_flags;
+  out_hints->ai_family = hints->ai_family;
+  out_hints->ai_socktype = hints->ai_socktype;
+  out_hints->ai_protocol = hints->ai_protocol;
+}
+
+long long ares_get_now_time()
+{
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  long long timestamp = (long long)tv.tv_sec * 1000 + tv.tv_usec / 1000;
+  return timestamp;
+}
+ 
+void free_process_info(struct ares_process_info process_info)
+{
+    struct ares_family_query_info ipv4Info = process_info.ipv4QueryInfo;
+    struct ares_family_query_info ipv6Info = process_info.ipv6QueryInfo;
+    if (ipv4Info.serverAddr) {
+        ares_free(ipv4Info.serverAddr);
+    }
+    if (ipv6Info.serverAddr) {
+        ares_free(ipv6Info.serverAddr);
+    }
+}
+
+void ares_free_posix_addrinfo(struct addrinfo *head) {
+  while (head != NULL) {
+    struct addrinfo *current = head;
+    head = head->ai_next;
+    if (current->ai_addr) {
+      ares_free(current->ai_addr);
+    }
+    ares_free(current);
+  }
+}
+
+struct addrinfo *ares_addrinfo_to_addrinfo(const struct ares_addrinfo *res) {
+  if (res == NULL) {
+    return NULL;
+  }
+
+  struct addrinfo *head_res = ares_malloc(sizeof(struct addrinfo));
+  if (head_res == NULL) {
+    return NULL;
+  }
+  memset(head_res, 0, sizeof(struct addrinfo));
+
+  struct addrinfo *now_node = head_res;
+  for (struct ares_addrinfo_node *tmp = res->nodes; tmp != NULL; tmp = tmp->ai_next) {
+    if (tmp->ai_addrlen > sizeof(ares_align_sock_addr)) {
+      continue;
+    }
+    struct addrinfo *next_node = ares_malloc(sizeof(struct addrinfo));
+    if (next_node == NULL) {
+      ares_free_posix_addrinfo(head_res);
+      return NULL;
+    }
+    memset(next_node, 0, sizeof(struct addrinfo));
+    now_node->ai_next = next_node;
+    now_node = next_node;
+
+    next_node->ai_flags = tmp->ai_flags;
+    next_node->ai_family = tmp->ai_family;
+    next_node->ai_socktype = tmp->ai_socktype;
+    next_node->ai_protocol = tmp->ai_protocol;
+    next_node->ai_addrlen = tmp->ai_addrlen;
+    next_node->ai_addr = ares_malloc(sizeof(ares_align_sock_addr));
+    if (next_node->ai_addr == NULL) {
+      ares_free_posix_addrinfo(head_res);
+      return NULL;
+    }
+    memset(next_node->ai_addr, 0, sizeof(ares_align_sock_addr));
+    memcpy(next_node->ai_addr, tmp->ai_addr, tmp->ai_addrlen);
+  }
+  struct addrinfo *out_res = head_res->ai_next;
+  ares_free(head_res);
+  return out_res;
+}
+
+void ares_record_process(int status, const char *hostname, long long start_time,
+    const struct ares_addrinfo *addr_info, struct host_query *hquery)
+{
+  if (hostname == NULL) {
+    return;
+  }
+  int cost_time = ares_get_now_time() - start_time;
+  struct ares_process_info process_info;
+  process_info.ipv4QueryInfo = empty_family_query_info;
+  process_info.ipv6QueryInfo = empty_family_query_info;
+  process_info.sourceFrom = SOURCE_FROM_CARES;
+  process_info.hostname = ares_strdup(hostname);
+  if (addr_info) {
+    // read from cache
+    process_info.isFromCache = 1;
+    process_info.queryTime = start_time;
+    process_info.retCode = status;
+    process_info.firstQueryEndDuration = cost_time;
+    process_info.firstReturnType = 0;
+    struct addrinfo *addr = ares_addrinfo_to_addrinfo(addr_info);
+    NetSysPostDnsQueryResult(0, addr, NULL, &process_info);
+    ares_free_posix_addrinfo(addr);
+    ares_free(process_info.hostname);
+  } else if (!hquery) {
+    // no hquery mean error
+    process_info.isFromCache = 0;
+    process_info.queryTime = start_time;
+    process_info.retCode = status;
+    process_info.firstQueryEndDuration = cost_time;
+    process_info.firstReturnType = 0;
+    NetSysPostDnsQueryResult(0, NULL, NULL, &process_info);
+    ares_free(process_info.hostname);
+  } else if (hquery) {
+    // query complete
+    ares_free(process_info.hostname);
+    process_info = hquery->process_info;
+    process_info.isFromCache = 0;
+    struct addrinfo *addr = ares_addrinfo_to_addrinfo(hquery->ai);
+    NetSysPostDnsQueryResult(0, addr, hquery->src_addr, &process_info);
+    ares_free_posix_addrinfo(addr);
+  }
+}
+
+int ares_ans_all_cname(const ares_dns_record_t *dnsrec)
+{
+  size_t ancount = ares_dns_record_rr_cnt(dnsrec, ARES_SECTION_ANSWER);
+  if (ancount == 0) {
+    return 0;
+  }
+  for (size_t i = 0; i < ancount; i++) {
+    const ares_dns_rr_t *rr =
+      ares_dns_record_rr_get_const(dnsrec, ARES_SECTION_ANSWER, i);
+    ares_dns_rec_type_t rtype = ares_dns_rr_get_type(rr);
+    ares_dns_class_t rclass = ares_dns_rr_get_class(rr);
+    if (rclass != ARES_CLASS_IN || rtype != ARES_REC_TYPE_CNAME) {
+      return 0;
+    }
+  }
+  return 1;
+}
+ 
+char *ares_get_addr(struct ares_addr *addr)
+{
+  if (addr == NULL) {
+    return NULL;
+  }
+  char *ip_str = NULL;
+  if (addr->family == AF_INET) {
+    ip_str = ares_malloc(INET_ADDRSTRLEN);
+    if (ip_str == NULL) {
+        return NULL;
+    }
+    if (ares_inet_ntop(AF_INET, &addr->addr.addr4, ip_str, INET_ADDRSTRLEN) == NULL) {
+        ares_free(ip_str);
+        return NULL;
+    }
+  } else if (addr->family == AF_INET6) {
+    ip_str = ares_malloc(INET6_ADDRSTRLEN);
+    if (ip_str == NULL) {
+        return NULL;
+    }
+    if (ares_inet_ntop(AF_INET6, &addr->addr.addr6, ip_str, INET6_ADDRSTRLEN) == NULL) {
+        ares_free(ip_str);
+        return NULL;
+    }
+  }
+  return ip_str;
+}
+ 
+char *ares_get_addr_by_sockaddr(struct sockaddr *sa)
+{
+  if (sa == NULL) {
+    return NULL;
+  }
+  char *ip_str = NULL;
+  switch (sa->sa_family) {
+    case AF_INET: {
+      ip_str = ares_malloc(INET_ADDRSTRLEN);
+      struct sockaddr_in *sin = (struct sockaddr_in *)sa;
+      if (ares_inet_ntop(AF_INET, &sin->sin_addr, ip_str, INET_ADDRSTRLEN) == NULL) {
+        ares_free(ip_str);
+      }
+      break;
+    }
+    case AF_INET6: {
+      ip_str = ares_malloc(INET6_ADDRSTRLEN);
+      struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)sa;
+      if (ares_inet_ntop(AF_INET6, &sin6->sin6_addr, ip_str, INET6_ADDRSTRLEN) == NULL) {
+        ares_free(ip_str);
+      }
+      break;
+    }
+    default:
+      break;
+  }
+  return ip_str;
+}
+ 
+int ares_get_src_addr(ares_socket_t sock, struct ares_addr addr, struct sockaddr *src_addr)
+{
+  if (sock <= 0) {
+    return -1;
+  }
+  ares_socklen_t len;
+  switch (addr.family)
+    {
+    case AF_INET:
+      len = sizeof(struct sockaddr_in);
+      break;
+    case AF_INET6:
+      len = sizeof(struct sockaddr_in6);
+      break;
+    default:
+      /* No known usable source address for non-INET families. */
+      return -1;
+    }
+  if (getsockname(sock, src_addr, &len) != 0) {
+    return -1;
+  }
+  return 0;
+}
+ 
+void ares_set_hquery_process(ares_dns_rec_type_t qtype, struct host_query *hquery,
+  int status, struct ares_family_query_info info)
+{
+  if (hquery->process_info.firstQueryEndDuration == 0) {
+    if (status == ARES_SUCCESS) {
+        hquery->process_info.firstQueryEndDuration =
+            ares_get_now_time() - hquery->process_info.queryTime;
+    }
+    hquery->process_info.firstReturnType = qtype;
+  }
+  if (qtype == ARES_REC_TYPE_A) {
+    hquery->process_info.ipv4QueryInfo = info;
+  }
+  if (qtype == ARES_REC_TYPE_AAAA) {
+    hquery->process_info.ipv6QueryInfo = info;
+  }
+}
+ 
+void ares_parse_query_info(int status, const ares_dns_record_t *dnsrec, struct host_query *hquery)
+{
+  if (hquery == NULL || dnsrec == NULL || hquery->channel == NULL) {
+    return;
+  }
+  ares_dns_rec_type_t qtype;
+  const ares_channel_t *channel = hquery->channel;
+  ares_query_t *query = ares_htable_szvp_get_direct(channel->queries_by_qid,
+    ares_dns_record_get_id(dnsrec));
+  if (query == NULL) {
+    return;
+  }
+  if (ares_dns_record_query_get(query->query, 0, NULL, &qtype, NULL) != ARES_SUCCESS) {
+    return;
+  }
+  if (qtype != ARES_REC_TYPE_A && qtype != ARES_REC_TYPE_AAAA)  {
+    return;
+  }
+  char *res_addr = NULL;
+  char *server_addr = NULL;
+  ares_conn_t *conn = query->conn;
+  if (conn == NULL) {
+    return;
+  }
+  ares_server_t *server = conn->server;
+  if (server == NULL) {
+    return;
+  }
+  server_addr = ares_get_addr(&server->addr);
+  struct sockaddr *src_addr = NULL;
+  src_addr = ares_malloc(sizeof(struct sockaddr_storage));
+  if (src_addr) {
+    if (ares_get_src_addr(conn->fd, server->addr, src_addr) == 0) {
+      res_addr = ares_get_addr_by_sockaddr(src_addr);
+    }
+  }
+  ares_free(src_addr);
+  hquery->src_addr = res_addr;
+  struct ares_family_query_info info;
+  info.retCode = status;
+  size_t ancount = ares_dns_record_rr_cnt(dnsrec, ARES_SECTION_ANSWER);
+  info.isNoAnswer = ancount > 0 ? 0 : 1;
+  info.serverAddr = server_addr;
+  info.cname = ares_ans_all_cname(dnsrec);
+  ares_set_hquery_process(qtype, hquery, status, info);
+}
+
+struct ares_addrinfo *
+ares_cached_addrinfo_to_ares_addrinfo(const ares_cached_addrinfo cached_addrinfo[static MAX_RESULTS], uint32_t num) {
+  uint32_t real_num = num > MAX_RESULTS ? MAX_RESULTS : num;
+  if (num == 0) {
+    return NULL;
+  }
+ 
+  struct ares_addrinfo_node *head_res = ares_malloc(sizeof(struct ares_addrinfo_node));
+  if (head_res == NULL) {
+    return NULL;
+  }
+  memset(head_res, 0, sizeof(struct ares_addrinfo_node));
+ 
+  struct ares_addrinfo_node *now_node = head_res;
+  for (uint32_t i = 0; i < real_num; ++i) {
+    if (cached_addrinfo[i].ai_addrlen > sizeof(ares_align_sock_addr)) {
+      continue;
+    }
+ 
+    struct ares_addrinfo_node *next_node = ares_malloc(sizeof(struct ares_addrinfo_node));
+    if (next_node == NULL) {
+      ares_freeaddrinfo_nodes(head_res);
+      return NULL;
+    }
+    memset(next_node, 0, sizeof(struct ares_addrinfo_node));
+    now_node->ai_next = next_node;
+    now_node = next_node;
+ 
+    next_node->ai_flags = (int) cached_addrinfo[i].ai_flags;
+    next_node->ai_family = (int) cached_addrinfo[i].ai_family;
+    next_node->ai_socktype = (int) cached_addrinfo[i].ai_socktype;
+    next_node->ai_protocol = (int) cached_addrinfo[i].ai_protocol;
+    next_node->ai_addrlen = (ares_socklen_t) cached_addrinfo[i].ai_addrlen;
+    next_node->ai_addr = ares_malloc(sizeof(ares_align_sock_addr));
+    if (next_node->ai_addr == NULL) {
+      ares_freeaddrinfo_nodes(head_res);
+      return NULL;
+    }
+    memset(next_node->ai_addr, 0, sizeof(ares_align_sock_addr));
+    memcpy(next_node->ai_addr, &cached_addrinfo[i].ai_addr, cached_addrinfo[i].ai_addrlen);
+  }
+  struct ares_addrinfo *info = ares_malloc(sizeof(struct ares_addrinfo));
+  if (info == NULL) {
+    ares_freeaddrinfo_nodes(head_res);
+    return NULL;
+  }
+  memset(info, 0, sizeof(struct ares_addrinfo));
+ 
+  info->nodes = head_res->ai_next;
+  ares_free(head_res);
+  return info;
+}
+ 
+struct ares_addrinfo *
+ares_get_dns_cache(const char *host, const char *service, const struct ares_addrinfo_hints *hints) {
+  ares_cache_key_param_wrapper param = {0};
+  param.host = (char *) host;
+  param.serv = (char *) service;
+  struct addrinfo hint = {0};
+  ares_addrinfo_hints_to_addrinfo(hints, &hint);
+  param.hint = &hint;
+ 
+  ares_cached_addrinfo cached_addrinfo[MAX_RESULTS] = {0};
+  memset(cached_addrinfo, 0, sizeof(ares_cached_addrinfo) * MAX_RESULTS);
+  uint32_t num = 0;
+  if (NetSysGetResolvCache(0, param, cached_addrinfo, &num) != 0) {
+    return NULL;
+  }
+  if (num == 0) {
+    return NULL;
+  }
+  return ares_cached_addrinfo_to_ares_addrinfo(cached_addrinfo, num);
+}
+ 
+void ares_set_dns_cache(const char *host, const char *service, const struct ares_addrinfo_hints *hints,
+                        const struct ares_addrinfo *res) {
+  ares_cache_key_param_wrapper param = {0};
+  param.host = (char *) host;
+  param.serv = (char *) service;
+  struct addrinfo hint = {0};
+  ares_addrinfo_hints_to_addrinfo(hints, &hint);
+  param.hint = &hint;
+ 
+  struct addrinfo *posix_res = ares_addrinfo_to_addrinfo(res);
+  if (!posix_res) {
+    return;
+  }
+ 
+  NetSysSetResolvCache(0, param, posix_res);
+  ares_free_posix_addrinfo(posix_res);
+}
+#endif
 
 struct ares_addrinfo_cname *
   ares_append_addrinfo_cname(struct ares_addrinfo_cname **head)
@@ -326,6 +758,10 @@ static void hquery_free(struct host_query *hquery, ares_bool_t cleanup_ai)
   ares_strsplit_free(hquery->names, hquery->names_cnt);
   ares_free(hquery->name);
   ares_free(hquery->lookups);
+#if OHOS_DNS_PROXY_BY_NETSYS
+  ares_free(hquery->src_addr);
+  free_process_info(hquery->process_info);
+#endif
   ares_free(hquery);
 }
 
@@ -352,7 +788,17 @@ static void end_hquery(struct host_query *hquery, ares_status_t status)
     ares_freeaddrinfo(hquery->ai);
     hquery->ai = NULL;
   }
-
+#if OHOS_DNS_PROXY_BY_NETSYS
+  char serv[12] = {0};
+  sprintf(serv, "%d", hquery->port);
+  ares_set_dns_cache(hquery->name, serv, &hquery->hints, hquery->ai);
+  hquery->process_info.hostname = hquery->name;
+  hquery->process_info.retCode = status;
+  int allDuration = ares_get_now_time() - hquery->process_info.queryTime;
+  int firstQueryEnd2AppDuration = allDuration - hquery->process_info.firstQueryEndDuration;
+  hquery->process_info.firstQueryEnd2AppDuration = firstQueryEnd2AppDuration;
+  ares_record_process(status, hquery->name, hquery->process_info.queryTime, NULL, hquery);
+#endif
   hquery->callback(hquery->arg, (int)status, (int)hquery->timeouts, hquery->ai);
   hquery_free(hquery, ARES_FALSE);
 }
@@ -536,7 +982,9 @@ static void host_callback(void *arg, ares_status_t status, size_t timeouts,
       terminate_retries(hquery, ares_dns_record_get_id(dnsrec));
     }
   }
-
+#if OHOS_DNS_PROXY_BY_NETSYS
+  ares_parse_query_info(status, dnsrec, hquery);
+#endif
   if (!hquery->remaining) {
     if (status == ARES_EDESTRUCTION || status == ARES_ECANCELLED) {
       /* must make sure we don't do next_lookup() on destroy or cancel,
@@ -580,6 +1028,15 @@ static void ares_getaddrinfo_int(ares_channel_t *channel, const char *name,
                                  const struct ares_addrinfo_hints *hints,
                                  ares_addrinfo_callback callback, void *arg)
 {
+  long long time_now = ares_get_now_time();
+#if OHOS_DNS_PROXY_BY_NETSYS
+  struct ares_addrinfo *cache_res = ares_get_dns_cache(name, service, hints);
+  if (cache_res && cache_res->nodes) {
+    ares_record_process(ARES_SUCCESS, name, time_now, cache_res, NULL);
+    callback(arg, ARES_SUCCESS, 0, cache_res);
+    return;
+  }
+#endif
   struct host_query    *hquery;
   unsigned short        port = 0;
   int                   family;
@@ -655,7 +1112,21 @@ static void ares_getaddrinfo_int(ares_channel_t *channel, const char *name,
   hquery->arg         = arg;
   hquery->ai          = ai;
   hquery->name        = ares_strdup(name);
+#if OHOS_DNS_PROXY_BY_NETSYS
+  hquery->src_addr    = NULL;
+  hquery->process_info.queryTime = time_now;
+  hquery->process_info.retCode = ARES_ENODATA;
+  hquery->process_info.firstQueryEndDuration = 0;
+  hquery->process_info.firstQueryEnd2AppDuration = 0;
+  hquery->process_info.firstReturnType = 0;
+  hquery->process_info.sourceFrom = SOURCE_FROM_CARES;
+  hquery->process_info.ipv4QueryInfo = empty_family_query_info;
+  hquery->process_info.ipv6QueryInfo = empty_family_query_info;
+#endif
   if (hquery->name == NULL) {
+#if OHOS_DNS_PROXY_BY_NETSYS
+    ares_record_process(ARES_ENOMEM, name, time_now, NULL, NULL);
+#endif
     hquery_free(hquery, ARES_TRUE);
     callback(arg, ARES_ENOMEM, 0, NULL);
     return;
@@ -664,6 +1135,9 @@ static void ares_getaddrinfo_int(ares_channel_t *channel, const char *name,
   status =
     ares_search_name_list(channel, name, &hquery->names, &hquery->names_cnt);
   if (status != ARES_SUCCESS) {
+#if OHOS_DNS_PROXY_BY_NETSYS
+    ares_record_process(status, name, time_now, NULL, NULL);
+#endif
     hquery_free(hquery, ARES_TRUE);
     callback(arg, (int)status, 0, NULL);
     return;
@@ -673,6 +1147,9 @@ static void ares_getaddrinfo_int(ares_channel_t *channel, const char *name,
 
   hquery->lookups = ares_strdup(channel->lookups);
   if (hquery->lookups == NULL) {
+#if OHOS_DNS_PROXY_BY_NETSYS
+    ares_record_process(status, name, time_now, NULL, NULL);
+#endif
     hquery_free(hquery, ARES_TRUE);
     callback(arg, ARES_ENOMEM, 0, NULL);
     return;
