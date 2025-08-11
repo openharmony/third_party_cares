@@ -57,6 +57,45 @@
 
 #include "ares_inet_net_pton.h"
 
+#if OHOS_DNS_PROXY_BY_NETSYS
+#define MAX_SERVER_NUM 8
+#define MAX_SERVER_LENGTH 50
+ 
+struct resolv_config {
+  int32_t error;
+  int32_t timeout_ms;
+  uint32_t retry_count;
+  uint32_t non_public;
+  char nameservers[MAX_SERVER_NUM][MAX_SERVER_LENGTH + 1];
+};
+ 
+int32_t NetSysGetResolvConfExt(uint16_t netid, struct resolv_config *config);
+ 
+static ares_status_t ares_init_sysconfig_netsys(const ares_channel_t *channel,
+                                                 ares_sysconfig_t *sysconfig)
+{
+  struct resolv_config config = {0};
+  int ret = 0;
+  int netid = 0;
+  ares_status_t status = ARES_EFILE;
+ 
+  ret = NetSysGetResolvConfExt(netid, &config);
+  if (ret < 0) {
+    return ARES_ENONAME;
+  }
+  for (int i = 0; i < MAX_SERVER_NUM; ++i) {
+    if (config.nameservers[i] == NULL || config.nameservers[i][0] == 0) {
+      continue;
+    }
+    status = ares_sconfig_append_fromstr(channel, &sysconfig->sconfig,
+                                         config.nameservers[i], ARES_TRUE);
+    if (status != ARES_SUCCESS) {
+      return status;
+    }
+  }
+  return status;
+}
+#endif
 
 #if defined(__MVS__)
 static ares_status_t ares_init_sysconfig_mvs(const ares_channel_t *channel,
@@ -606,6 +645,8 @@ ares_status_t ares_init_by_sysconfig(ares_channel_t *channel)
   status = ares_init_sysconfig_libresolv(channel, &sysconfig);
 #elif defined(__QNX__)
   status = ares_init_sysconfig_qnx(channel, &sysconfig);
+#elif OHOS_DNS_PROXY_BY_NETSYS
+  status = ares_init_sysconfig_netsys(channel, &sysconfig);
 #else
   status = ares_init_sysconfig_files(channel, &sysconfig, ARES_TRUE);
 #endif

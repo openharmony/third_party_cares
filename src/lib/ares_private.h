@@ -312,6 +312,28 @@ struct ares_channeldata {
   ares_bool_t                         sys_up;
 };
 
+#if OHOS_DNS_PROXY_BY_NETSYS
+struct ares_family_query_info {
+  int retCode;
+  char *serverAddr;
+  unsigned char isNoAnswer;
+  unsigned char cname;
+};
+ 
+struct ares_process_info {
+  long long queryTime;
+  char *hostname;
+  int retCode;
+  int firstQueryEndDuration;
+  int firstQueryEnd2AppDuration;
+  unsigned short firstReturnType; /* a or aaaa */
+  unsigned char isFromCache;
+  unsigned char sourceFrom;
+  struct ares_family_query_info ipv4QueryInfo;
+  struct ares_family_query_info ipv6QueryInfo;
+};
+#endif
+
 /* Does the domain end in ".onion" or ".onion."? Case-insensitive. */
 ares_bool_t   ares_is_onion_domain(const char *name);
 

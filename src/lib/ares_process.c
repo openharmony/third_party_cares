@@ -1295,6 +1295,9 @@ ares_status_t ares_send_query(ares_server_t *requested_server,
   }
 
   timeplus = ares_calc_query_timeout(query, server, now);
+#if OHOS_DNS_PROXY_BY_NETSYS
+  timeplus = channel->timeout;
+#endif
   /* Keep track of queries bucketed by timeout, so we can process
    * timeout events quickly.
    */
