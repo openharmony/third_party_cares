@@ -491,6 +491,8 @@ done:
     ares_socket_close(channel, conn->fd);
     ares_buf_destroy(conn->out_buf);
     ares_buf_destroy(conn->in_buf);
+    conn->out_buf = NULL;
+    conn->in_buf = NULL;
     ares_free(conn);
   } else {
     *conn_out = conn;
