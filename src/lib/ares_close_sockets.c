@@ -57,6 +57,8 @@ void ares_close_connection(ares_conn_t *conn, ares_status_t requeue_status)
 
   ares_buf_destroy(conn->in_buf);
   ares_buf_destroy(conn->out_buf);
+  conn->in_buf = NULL;
+  conn->out_buf = NULL;
 
   /* Requeue queries to other connections */
   ares_requeue_queries(conn, requeue_status);
