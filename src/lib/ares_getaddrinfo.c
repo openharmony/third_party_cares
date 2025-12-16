@@ -1195,11 +1195,11 @@ static ares_bool_t next_dns_lookup(struct host_query *hquery)
       break;
     case AF_UNSPEC:
       hquery->remaining += 2;
-      ares_query_nolock(hquery->channel, name, ARES_CLASS_IN, ARES_REC_TYPE_A,
-                        host_callback, hquery, &hquery->qid_a);
       ares_query_nolock(hquery->channel, name, ARES_CLASS_IN,
                         ARES_REC_TYPE_AAAA, host_callback, hquery,
                         &hquery->qid_aaaa);
+      ares_query_nolock(hquery->channel, name, ARES_CLASS_IN, ARES_REC_TYPE_A,
+                        host_callback, hquery, &hquery->qid_a);
       break;
     default:
       break;
