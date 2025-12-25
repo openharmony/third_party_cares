@@ -519,6 +519,9 @@ CARES_EXTERN void          ares_set_local_ip6(ares_channel_t      *channel,
 CARES_EXTERN void          ares_set_local_dev(ares_channel_t *channel,
                                               const char     *local_dev_name);
 
+CARES_EXTERN void          ares_set_dns_netid(ares_channel_t *channel,
+                                              int32_t  netId);
+
 CARES_EXTERN void          ares_set_socket_callback(ares_channel_t           *channel,
                                                     ares_sock_create_callback callback,
                                                     void                     *user_data);
