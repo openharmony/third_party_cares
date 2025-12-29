@@ -129,6 +129,7 @@ static ares_status_t init_by_defaults(ares_channel_t *channel)
   struct ares_addr addr;
   ares_llist_t    *sconfig = NULL;
 
+#ifndef OHOS_DNS_PROXY_BY_NETSYS
   /* Enable EDNS by default */
   if (!(channel->optmask & ARES_OPT_FLAGS)) {
     channel->flags = ARES_FLAG_EDNS;
@@ -136,6 +137,7 @@ static ares_status_t init_by_defaults(ares_channel_t *channel)
   if (channel->ednspsz == 0) {
     channel->ednspsz = EDNSPACKETSZ;
   }
+#endif
 
   if (channel->timeout == 0) {
     channel->timeout = DEFAULT_TIMEOUT;
