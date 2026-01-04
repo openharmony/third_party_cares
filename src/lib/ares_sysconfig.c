@@ -76,7 +76,11 @@ static ares_status_t ares_init_sysconfig_netsys(const ares_channel_t *channel,
 {
   struct resolv_config config = {0};
   int ret = 0;
+#ifdef HAS_NETMANAGER_BASE
+  int netid = channel->netId;
+#else
   int netid = 0;
+#endif
   ares_status_t status = ARES_EFILE;
  
   ret = NetSysGetResolvConfExt(netid, &config);

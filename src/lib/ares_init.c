@@ -334,6 +334,7 @@ int ares_init_options(ares_channel_t           **channelptr,
   }
 
   if (status == ARES_SUCCESS) {
+    ares_set_socket_functions_def(channel);
     status = ares_init_by_sysconfig(channel);
     if (status != ARES_SUCCESS) {
       DEBUGF(fprintf(stderr, "Error: init_by_sysconfig failed: %s\n",
@@ -352,7 +353,6 @@ int ares_init_options(ares_channel_t           **channelptr,
     goto done;
   }
 
-  ares_set_socket_functions_def(channel);
 
   /* Initialize the event thread */
   if (channel->optmask & ARES_OPT_EVENT_THREAD) {
@@ -500,6 +500,9 @@ int ares_dup(ares_channel_t **dest, const ares_channel_t *src)
   (*dest)->legacy_sock_funcs_cb_data = src->legacy_sock_funcs_cb_data;
   (*dest)->server_state_cb           = src->server_state_cb;
   (*dest)->server_state_cb_data      = src->server_state_cb_data;
+#ifdef HAS_NETMANAGER_BASE 
+  (*dest)->netId                     = src->netId;
+#endif
 
   ares_strcpy((*dest)->local_dev_name, src->local_dev_name,
               sizeof((*dest)->local_dev_name));
@@ -578,6 +581,18 @@ void ares_set_local_dev(ares_channel_t *channel, const char *local_dev_name)
   channel->local_dev_name[sizeof(channel->local_dev_name) - 1] = 0;
   ares_channel_unlock(channel);
 }
+
+#ifdef HAS_NETMANAGER_BASE
+void ares_set_dns_netid(ares_channel_t *channel, int32_t netId)
+{
+    if (channel == NULL) {
+        return;
+    }
+    ares_channel_lock(channel);
+    channel->netId = netId;
+    ares_channel_unlock(channel);
+}
+#endif
 
 int ares_set_sortlist(ares_channel_t *channel, const char *sortstr)
 {

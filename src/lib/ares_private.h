@@ -222,6 +222,7 @@ struct ares_channeldata {
   char                 local_dev_name[32];
   unsigned int         local_ip4;
   unsigned char        local_ip6[16];
+  int32_t              netId;
 
   /* Thread safety lock */
   ares_thread_mutex_t *lock;

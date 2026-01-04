@@ -146,12 +146,14 @@ action("installCares") {
     rebase_path(src_path, root_build_dir),
     rebase_path(code_dir, root_build_dir),
   ]
-  inputs = [ src_path ]
+  inputs = []
   outputs = []
   foreach(src, cares_srcs) {
+    inputs += [ "$src_path/src/lib/" + src ]
     outputs += [ "$code_dir/src/lib/" + src ]
   }
   foreach(test, sources_test) {
+    inputs += [ "$src_path/" + test ]
     outputs += [ "$code_dir/" + test ]
   }
 }

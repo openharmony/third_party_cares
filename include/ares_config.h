@@ -305,6 +305,12 @@
 /* Define to 1 if you have struct sockaddr_in6. */
 #define HAVE_STRUCT_SOCKADDR_IN6 1
 
+/* Define to 1 if you have scope id. */
+#define HAVE_STRUCT_SOCKADDR_IN6_SIN6_SCOPE_ID 1
+ 
+/* Define to 1  if you use nametoindex. */
+#define HAVE_IF_NAMETOINDEX 1
+
 /* if struct sockaddr_storage is defined */
 #define HAVE_STRUCT_SOCKADDR_STORAGE 1
 
