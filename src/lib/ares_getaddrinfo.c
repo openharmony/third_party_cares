@@ -478,8 +478,11 @@ ares_cached_addrinfo_to_ares_addrinfo(const ares_cached_addrinfo cached_addrinfo
 }
  
 struct ares_addrinfo *
-ares_get_dns_cache(const char *host, const char *service, const struct ares_addrinfo_hints *hints) {
-  ares_cache_key_param_wrapper param = {0};
+#ifdef HAS_NETMANAGER_BASE
+	ares_get_dns_cache(const char *host, const char *service, const struct ares_addrinfo_hints *hints, int32_t netId) {
+#else
+	ares_get_dns_cache(const char *host, const char *service, const struct ares_addrinfo_hints *hints) {
+#endif
   param.host = (char *) host;
   param.serv = (char *) service;
   struct addrinfo hint = {0};
@@ -496,7 +499,11 @@ ares_get_dns_cache(const char *host, const char *service, const struct ares_addr
 }
  
 void ares_set_dns_cache(const char *host, const char *service, const struct ares_addrinfo_hints *hints,
+#ifdef HAS_NETMANAGER_BASE
+                        const struct ares_addrinfo *res, int32_t netId) {
+#else
                         const struct ares_addrinfo *res) {
+#endif
   ares_cache_key_param_wrapper param = {0};
   param.host = (char *) host;
   param.serv = (char *) service;
@@ -775,7 +782,11 @@ static void end_hquery(struct host_query *hquery, ares_status_t status)
 #if OHOS_DNS_PROXY_BY_NETSYS
   char serv[12] = {0};
   sprintf(serv, "%d", hquery->port);
+#ifdef HAS_NETMANAGER_BASE
+  ares_set_dns_cache(hquery->name, serv, &hquery->hints, hquery->ai, hquery->channel->netId);
+#else
   ares_set_dns_cache(hquery->name, serv, &hquery->hints, hquery->ai);
+#endif
   hquery->process_info.hostname = hquery->name;
   hquery->process_info.retCode = status;
   int allDuration = ares_get_now_time() - hquery->process_info.queryTime;
@@ -1026,7 +1037,11 @@ static void ares_getaddrinfo_int(ares_channel_t *channel, const char *name,
 {
 #if OHOS_DNS_PROXY_BY_NETSYS
   long long time_now = ares_get_now_time();
+#ifdef HAS_NETMANAGER_BASE
+  struct ares_addrinfo *cache_res = ares_get_dns_cache(name, service, hints, channel->netId);
+#else
   struct ares_addrinfo *cache_res = ares_get_dns_cache(name, service, hints);
+#endif
   if (cache_res && cache_res->nodes) {
     ares_record_process(ARES_SUCCESS, name, time_now, cache_res, NULL);
     callback(arg, ARES_SUCCESS, 0, cache_res);
