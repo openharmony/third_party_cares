@@ -149,7 +149,7 @@ ares_status_t ares_send_nolock(ares_channel_t *channel, ares_server_t *server,
   query->timeout.usec = 0;
   query->using_tcp =
     (channel->flags & ARES_FLAG_USEVC) ? ARES_TRUE : ARES_FALSE;
-  size_t = max_tries = ares_slist_len(channel->servers) * channel->tries;
+  size_t max_tries = ares_slist_len(channel->servers) * channel->tries;
   query->node_queries_to_conn_set = ares_malloc(sizeof(ares_llist_node_t*) * max_tries);
   if (!query->node_queries_to_conn_set) {
     ares_free(query);
