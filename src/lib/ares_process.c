@@ -1323,12 +1323,13 @@ ares_status_t ares_send_query(ares_server_t *requested_server,
   if (query->conn != conn) {
     ares_llist_node_t *new_node_queries_to_conn =
       ares_llist_insert_last(conn->queries_to_conn, query);
-    if (new_node_queries_to_conn = NULL) {
+    if (new_node_queries_to_conn == NULL) {
       /* LCOV_EXCL_START: OutOfMemory */
       end_query(channel, server, query, ARES_ENOMEM, NULL);
       return ARES_ENOMEM;
       /* LCOV_EXCL_STOP */
     }
+    query->node_queries_to_conn_set[query->queries_to_conn_count++] = new_node_queries_to_conn;
   }
 
   query->conn = conn;
