@@ -161,7 +161,7 @@ struct ares_query {
    * make removal operations O(1).
    */
   ares_slist_node_t   *node_queries_by_timeout;
-  ares_llist_node_t   *node_queries_to_conn;
+  ares_llist_node_t   **node_queries_to_conn_set;
   ares_llist_node_t   *node_all_queries;
 
   /* connection handle query is associated with */
@@ -174,6 +174,7 @@ struct ares_query {
   void                *arg;
 
   /* Query status */
+  size_t        queries_to_conn_count;
   size_t        try_count; /* Number of times we tried this query already. */
   size_t        cookie_try_count; /* Attempt count for cookie resends */
   ares_bool_t   using_tcp;
