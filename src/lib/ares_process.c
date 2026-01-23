@@ -1320,7 +1320,7 @@ ares_status_t ares_send_query(ares_server_t *requested_server,
 
   /* Keep track of queries bucketed by connection, so we can process errors
    * quickly. */
-  if (query->conn != conn) {
+  if (ares_llist_node_search(conn->queries_to_conn, query) == NULL) {
     ares_llist_node_t *new_node_queries_to_conn =
       ares_llist_insert_last(conn->queries_to_conn, query);
     if (new_node_queries_to_conn == NULL) {

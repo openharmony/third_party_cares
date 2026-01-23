@@ -135,6 +135,11 @@ static const struct ares_family_query_info empty_family_query_info = {
   0,  /* cname */
 };
 
+typedef struct {
+    struct addrinfo *ai;
+    uint32_t ttl;
+} dns_ans;
+
 void ares_addrinfo_hints_to_addrinfo(const struct ares_addrinfo_hints *hints, struct addrinfo *out_hints) {
   if (hints == NULL || out_hints == NULL) {
     return;
@@ -177,7 +182,8 @@ void ares_free_posix_addrinfo(struct addrinfo *head) {
   }
 }
 
-struct addrinfo *ares_addrinfo_to_addrinfo(const struct ares_addrinfo *res) {
+struct addrinfo *ares_addrinfo_to_addrinfo(
+  const struct ares_addrinfo *res, dns_ans *ans, int *num) {
   if (res == NULL) {
     return NULL;
   }
@@ -188,6 +194,7 @@ struct addrinfo *ares_addrinfo_to_addrinfo(const struct ares_addrinfo *res) {
   }
   memset(head_res, 0, sizeof(struct addrinfo));
 
+  *num = 0;
   struct addrinfo *now_node = head_res;
   for (struct ares_addrinfo_node *tmp = res->nodes; tmp != NULL; tmp = tmp->ai_next) {
     if (tmp->ai_addrlen > sizeof(ares_align_sock_addr)) {
@@ -214,6 +221,11 @@ struct addrinfo *ares_addrinfo_to_addrinfo(const struct ares_addrinfo *res) {
     }
     memset(next_node->ai_addr, 0, sizeof(ares_align_sock_addr));
     memcpy(next_node->ai_addr, tmp->ai_addr, tmp->ai_addrlen);
+    if (ans != NULL && *num < MAX_RESULTS) {
+      ans[*num].ai = next_node;
+      ans[*num].ttl = tmp->ai_ttl;
+    }
+    (*num)++;
   }
   struct addrinfo *out_res = head_res->ai_next;
   ares_free(head_res);
@@ -226,6 +238,7 @@ void ares_record_process(int status, const char *hostname, long long start_time,
   if (hostname == NULL) {
     return;
   }
+  int num;
   int cost_time = ares_get_now_time() - start_time;
   struct ares_process_info process_info;
   process_info.ipv4QueryInfo = empty_family_query_info;
@@ -239,7 +252,7 @@ void ares_record_process(int status, const char *hostname, long long start_time,
     process_info.retCode = status;
     process_info.firstQueryEndDuration = cost_time;
     process_info.firstReturnType = 0;
-    struct addrinfo *addr = ares_addrinfo_to_addrinfo(addr_info);
+    struct addrinfo *addr = ares_addrinfo_to_addrinfo(addr_info, NULL, &num);
     ares_free_posix_addrinfo(addr);
     ares_free(process_info.hostname);
   } else if (!hquery) {
@@ -255,7 +268,7 @@ void ares_record_process(int status, const char *hostname, long long start_time,
     ares_free(process_info.hostname);
     process_info = hquery->process_info;
     process_info.isFromCache = 0;
-    struct addrinfo *addr = ares_addrinfo_to_addrinfo(hquery->ai);
+    struct addrinfo *addr = ares_addrinfo_to_addrinfo(hquery->ai, NULL, &num);
     ares_free_posix_addrinfo(addr);
   }
 }
@@ -504,15 +517,22 @@ void ares_set_dns_cache(const char *host, const char *service, const struct ares
 #else
                         const struct ares_addrinfo *res) {
 #endif
+  int num;
   ares_cache_key_param_wrapper param = {0};
   param.host = (char *) host;
   param.serv = (char *) service;
   struct addrinfo hint = {0};
   ares_addrinfo_hints_to_addrinfo(hints, &hint);
   param.hint = &hint;
+
+  dns_ans *ans = ares_malloc(sizeof(dns_ans) * MAX_RESULTS);
+  if (ans == NULL) {
+    return;
+  }
  
-  struct addrinfo *posix_res = ares_addrinfo_to_addrinfo(res);
+  struct addrinfo *posix_res = ares_addrinfo_to_addrinfo(res, ans, &num);
   if (!posix_res) {
+    ares_free(ans);
     return;
   }
   ares_free_posix_addrinfo(posix_res);
