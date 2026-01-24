@@ -535,6 +535,7 @@ void ares_set_dns_cache(const char *host, const char *service, const struct ares
     ares_free(ans);
     return;
   }
+  ares_free(ans);
   ares_free_posix_addrinfo(posix_res);
 }
 #endif
