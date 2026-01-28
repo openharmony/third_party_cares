@@ -54,6 +54,9 @@ int ares_parse_a_reply(const unsigned char *abuf, int alen,
   ares_status_t        status;
   size_t               req_naddrttls = 0;
   ares_dns_record_t   *dnsrec        = NULL;
+#if OHOS_DNS_PROXY_BY_NETSYS
+  struct ares_addrinfo_node *localaddrnode = NULL;
+#endif
 
   if (alen < 0) {
     return ARES_EBADRESP;
@@ -71,7 +74,11 @@ int ares_parse_a_reply(const unsigned char *abuf, int alen,
     goto fail;
   }
 
+#if OHOS_DNS_PROXY_BY_NETSYS
+  status = ares_parse_into_addrinfo(dnsrec, 0, 0, &ai, &localaddrnode);
+#else
   status = ares_parse_into_addrinfo(dnsrec, 0, 0, &ai);
+#endif
   if (status != ARES_SUCCESS && status != ARES_ENODATA) {
     goto fail;
   }
@@ -98,6 +105,9 @@ fail:
   ares_free(ai.name);
   ares_free(question_hostname);
   ares_dns_record_destroy(dnsrec);
+#if OHOS_DNS_PROXY_BY_NETSYS
+  ares_freeaddrinfo_nodes(localaddrnode);
+#endif
 
   if (status == ARES_EBADNAME) {
     status = ARES_EBADRESP;
