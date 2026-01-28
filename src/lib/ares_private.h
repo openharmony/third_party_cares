@@ -471,10 +471,18 @@ ares_status_t ares_append_ai_node(int aftype, unsigned short port,
 void          ares_addrinfo_cat_cnames(struct ares_addrinfo_cname **head,
                                        struct ares_addrinfo_cname  *tail);
 
+#if OHOS_DNS_PROXY_BY_NETSYS
+ares_status_t ares_parse_into_addrinfo(const ares_dns_record_t *dnsrec,
+                                       ares_bool_t    cname_only_is_enodata,
+                                       unsigned short port,
+                                       struct ares_addrinfo *ai,
+                                       struct ares_addrinfo_node **localaddrnode);
+#else
 ares_status_t ares_parse_into_addrinfo(const ares_dns_record_t *dnsrec,
                                        ares_bool_t    cname_only_is_enodata,
                                        unsigned short port,
                                        struct ares_addrinfo *ai);
+#endif
 ares_status_t ares_parse_ptr_reply_dnsrec(const ares_dns_record_t *dnsrec,
                                           const void *addr, int addrlen,
                                           int family, struct hostent **host);

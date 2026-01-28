@@ -44,11 +44,61 @@
 #  include <limits.h>
 #endif
 
+#if OHOS_DNS_PROXY_BY_NETSYS
+enum ipv4_invalid_type {
+	IPV4_VALID_TYPE = 0,
+	IPV4_INVALID_TYPE_ALLZERO,
+	IPV4_INVALID_TYPE_LOCAL
+};
+ 
+int get_ipv4_invalid_type(const void* data)
+{
+	if (data == NULL) {
+		return IPV4_VALID_TYPE;
+	}
+	const unsigned char* addr = (const unsigned char *)data;
+	unsigned char all_zero_addr[4] = { 0, 0, 0, 0};
+	if (memcmp(addr, all_zero_addr, 4) == 0) {
+		return IPV4_INVALID_TYPE_ALLZERO;
+	}
 
+	if (addr[0] == 127) {
+		return IPV4_INVALID_TYPE_LOCAL;
+	}
+	return IPV4_VALID_TYPE;
+}
+
+ares_bool_t ares_has_same_ipv4_addr(const struct in_addr *saddr, struct ares_addrinfo_node **head)
+{
+  if (saddr == NULL || head == NULL) {
+    return ARES_FALSE;
+  }
+  struct ares_addrinfo_node *last = *head;
+  while(last) {
+    if (last->ai_family == AF_INET && last->ai_addr) {
+      const struct sockaddr_in *addr = (struct sockaddr_in *)last->ai_addr;
+      if (addr->sin_addr.s_addr == saddr->s_addr) {
+        return ARES_TRUE;
+      }
+    }
+    last = last->ai_next;
+  }
+  return ARES_FALSE;
+}
+#endif
+
+#if OHOS_DNS_PROXY_BY_NETSYS
+ares_status_t ares_parse_into_addrinfo(const ares_dns_record_t *dnsrec,
+                                       ares_bool_t    cname_only_is_enodata,
+                                       unsigned short port,
+                                       struct ares_addrinfo *ai,
+                                       struct ares_addrinfo_node **localaddrnode)
+#else
 ares_status_t ares_parse_into_addrinfo(const ares_dns_record_t *dnsrec,
                                        ares_bool_t    cname_only_is_enodata,
                                        unsigned short port,
                                        struct ares_addrinfo *ai)
+#endif
 {
   ares_status_t               status;
   size_t                      i;
@@ -120,6 +170,20 @@ ares_status_t ares_parse_into_addrinfo(const ares_dns_record_t *dnsrec,
         goto done;            /* LCOV_EXCL_LINE: OutOfMemory */
       }
     } else if (rtype == ARES_REC_TYPE_A) {
+#if OHOS_DNS_PROXY_BY_NETSYS
+      const struct in_addr *saddr = ares_dns_rr_get_addr(rr, ARES_RR_A_ADDR);
+      int invalidType = get_ipv4_invalid_type(saddr);
+      if (invalidType == IPV4_INVALID_TYPE_LOCAL && localaddrnode &&
+        ares_has_same_ipv4_addr(saddr, localaddrnode) == ARES_FALSE) {
+        status = ares_append_ai_node(AF_INET, port, ares_dns_rr_get_ttl(rr), saddr, localaddrnode);
+      }
+      if (status != ARES_SUCCESS) {
+        goto done;
+      }
+      if (invalidType != IPV4_VALID_TYPE) {
+        continue;
+      }
+#endif
       got_a = ARES_TRUE;
       status =
         ares_append_ai_node(AF_INET, port, ares_dns_rr_get_ttl(rr),

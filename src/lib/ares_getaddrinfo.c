@@ -88,6 +88,7 @@ struct host_query {
 #if OHOS_DNS_PROXY_BY_NETSYS
   char                  *src_addr;
   struct ares_process_info process_info;
+  struct ares_addrinfo_node *ipv4LocalAddrAi;
 #endif
 };
 
@@ -752,6 +753,7 @@ static void hquery_free(struct host_query *hquery, ares_bool_t cleanup_ai)
 #if OHOS_DNS_PROXY_BY_NETSYS
   ares_free(hquery->src_addr);
   free_process_info(hquery->process_info);
+  ares_freeaddrinfo_nodes(hquery->ipv4LocalAddrAi);
 #endif
   ares_free(hquery);
 }
@@ -938,6 +940,16 @@ static ares_bool_t ai_has_ipv4(struct ares_addrinfo *ai)
   return ARES_FALSE;
 }
 
+#if OHOS_DNS_PROXY_BY_NETSYS
+static void ares_addrinfo_cat_local_addr(struct host_query *hquery)
+{
+  if (hquery->ipv4LocalAddrAi && !ai_has_ipv4(hquery->ai)) {
+    ares_addrinfo_cat_nodes(&hquery->ai->nodes, hquery->ipv4LocalAddrAi);
+    hquery->ipv4LocalAddrAi = NULL;
+  }
+}
+#endif
+
 static void host_callback(void *arg, ares_status_t status, size_t timeouts,
                           const ares_dns_record_t *dnsrec)
 {
@@ -950,8 +962,13 @@ static void host_callback(void *arg, ares_status_t status, size_t timeouts,
     if (dnsrec == NULL) {
       addinfostatus = ARES_EBADRESP; /* LCOV_EXCL_LINE: DefensiveCoding */
     } else {
+#if OHOS_DNS_PROXY_BY_NETSYS
       addinfostatus =
+        ares_parse_into_addrinfo(dnsrec, ARES_TRUE, hquery->port, hquery->ai, &hquery->ipv4LocalAddrAi);
+#else
+       addinfostatus =
         ares_parse_into_addrinfo(dnsrec, ARES_TRUE, hquery->port, hquery->ai);
+#endif
     }
 
     /* We sent out ipv4 and ipv6 requests simultaneously.  If we got a
@@ -996,6 +1013,9 @@ static void host_callback(void *arg, ares_status_t status, size_t timeouts,
         end_hquery(hquery, addinfostatus);
       }
     } else if (hquery->ai->nodes) {
+#if OHOS_DNS_PROXY_BY_NETSYS
+      ares_addrinfo_cat_local_addr(hquery);
+#endif
       /* at least one query ended with ARES_SUCCESS */
       end_hquery(hquery, ARES_SUCCESS);
     } else if (status == ARES_ENOTFOUND || status == ARES_ENODATA ||
@@ -1013,6 +1033,11 @@ static void host_callback(void *arg, ares_status_t status, size_t timeouts,
         node = ares_slist_node_find(hquery->channel->servers, server);
         ares_slist_node_reinsert(node);
         ares_qcache_flush(hquery->channel->qcache);
+      }
+      if (hquery->nodata_cnt >= ares_slist_len(hquery->channel->servers) && hquery->nodata_cnt > 0) {
+        ares_addrinfo_cat_local_addr(hquery);
+        end_hquery(hquery, ARES_SUCCESS);
+        return;
       }
 #endif
       next_lookup(hquery, hquery->nodata_cnt ? ARES_ENODATA : status);
@@ -1210,11 +1235,11 @@ static ares_bool_t next_dns_lookup(struct host_query *hquery)
       break;
     case AF_UNSPEC:
       hquery->remaining += 2;
+      ares_query_nolock(hquery->channel, name, ARES_CLASS_IN, ARES_REC_TYPE_A,
+                        host_callback, hquery, &hquery->qid_a);
       ares_query_nolock(hquery->channel, name, ARES_CLASS_IN,
                         ARES_REC_TYPE_AAAA, host_callback, hquery,
                         &hquery->qid_aaaa);
-      ares_query_nolock(hquery->channel, name, ARES_CLASS_IN, ARES_REC_TYPE_A,
-                        host_callback, hquery, &hquery->qid_a);
       break;
     default:
       break;

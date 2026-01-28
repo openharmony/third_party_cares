@@ -91,9 +91,6 @@ ares_status_t ares_append_ai_node(int aftype, unsigned short port,
     node->ai_addrlen = sizeof(*sin);
     node->ai_addr    = (struct sockaddr *)sin;
     node->ai_ttl     = (int)ttl;
-    if (sin->sin_addr.s_addr == 0) {
-      return ARES_ENODATA;
-    }
   }
 
   if (aftype == AF_INET6) {
