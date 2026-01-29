@@ -70,9 +70,7 @@ static void        ares_query_remove_from_conn(ares_query_t *query)
 {
   /* If its not part of a connection, it can't be tracked for timeouts either */
   ares_slist_node_destroy(query->node_queries_by_timeout);
-  ares_llist_node_destroy(query->node_queries_to_conn);
   query->node_queries_by_timeout = NULL;
-  query->node_queries_to_conn    = NULL;
   query->conn                    = NULL;
 }
 
@@ -769,6 +767,7 @@ static ares_status_t process_answer(ares_channel_t      *channel,
   ares_dns_record_t *rdnsrec = NULL;
   ares_status_t      status;
   ares_bool_t        is_cached = ARES_FALSE;
+  size_t             i;
 
   /* UDP can have 0-byte messages, drop them to the ground */
   if (alen == 0) {
@@ -815,8 +814,13 @@ static ares_status_t process_answer(ares_channel_t      *channel,
    * remove it from the connection's queue so we can possibly invalidate the
    * connection. Delay cleaning up the connection though as we may enqueue
    * something new.  */
-  ares_llist_node_destroy(query->node_queries_to_conn);
-  query->node_queries_to_conn = NULL;
+  for (i = 0; i < query->queries_to_conn_count; i++) {
+    if (query->node_queries_to_conn_set[i] != NULL) {
+      ares_llist_node_destroy(query->node_queries_to_conn_set[i]);
+      query->node_queries_to_conn_set[i] = NULL;
+    }
+  }
+  query->queries_to_conn_count = 0;
 
   /* There are old servers that don't understand EDNS at all, then some servers
    * that have non-compliant implementations.  Lets try to detect this sort
@@ -1316,15 +1320,16 @@ ares_status_t ares_send_query(ares_server_t *requested_server,
 
   /* Keep track of queries bucketed by connection, so we can process errors
    * quickly. */
-  ares_llist_node_destroy(query->node_queries_to_conn);
-  query->node_queries_to_conn =
-    ares_llist_insert_last(conn->queries_to_conn, query);
-
-  if (query->node_queries_to_conn == NULL) {
-    /* LCOV_EXCL_START: OutOfMemory */
-    end_query(channel, server, query, ARES_ENOMEM, NULL);
-    return ARES_ENOMEM;
-    /* LCOV_EXCL_STOP */
+  if (ares_llist_node_search(conn->queries_to_conn, query) == NULL) {
+    ares_llist_node_t *new_node_queries_to_conn =
+      ares_llist_insert_last(conn->queries_to_conn, query);
+    if (new_node_queries_to_conn == NULL) {
+      /* LCOV_EXCL_START: OutOfMemory */
+      end_query(channel, server, query, ARES_ENOMEM, NULL);
+      return ARES_ENOMEM;
+      /* LCOV_EXCL_STOP */
+    }
+    query->node_queries_to_conn_set[query->queries_to_conn_count++] = new_node_queries_to_conn;
   }
 
   query->conn = conn;
@@ -1434,6 +1439,7 @@ static void end_query(ares_channel_t *channel, ares_server_t *server,
 
 void ares_free_query(ares_query_t *query)
 {
+  size_t i;
   ares_detach_query(query);
   /* Zero out some important stuff, to help catch bugs */
   query->callback = NULL;
@@ -1441,5 +1447,13 @@ void ares_free_query(ares_query_t *query)
   /* Deallocate the memory associated with the query */
   ares_dns_record_destroy(query->query);
 
+  for (i = 0; i < query->queries_to_conn_count; i++) {
+    if (query->node_queries_to_conn_set[i] != NULL) {
+      ares_llist_node_destroy(query->node_queries_to_conn_set[i]);
+      query->node_queries_to_conn_set[i] = NULL;
+    }
+  }
+  query->queries_to_conn_count = 0;
+  ares_free(query->node_queries_to_conn_set);
   ares_free(query);
 }
