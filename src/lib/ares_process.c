@@ -920,6 +920,22 @@ static void handle_conn_error(ares_conn_t *conn, ares_bool_t critical_failure,
   ares_close_connection(conn, failure_status);
 }
 
+void ares_remove_query_to_conn(ares_conn_t *conn, ares_query_t *query)
+{
+  size_t i;
+  if (query == NULL || conn == NULL || conn->queries_to_conn == NULL) {
+    return;
+  }
+
+  for (i = 0; i < query->queries_to_conn_count; i++) {
+    if (query->node_queries_to_conn_set[i] != NULL &&
+        ares_llist_node_parent(query->node_queries_to_conn_set[i]) != conn->queries_to_conn) {
+      ares_llist_node_destroy(query->node_queries_to_conn_set[i]);
+      query->node_queries_to_conn_set[i] = NULL;
+    }
+  }
+}
+
 /* Requeue query will normally call ares_send_query() but in some circumstances
  * this needs to be delayed, so if requeue is not NULL, it will add the query
  * to the queue instead */
@@ -1285,6 +1301,8 @@ ares_status_t ares_send_query(ares_server_t *requested_server,
      * error codes */
     case ARES_ECONNREFUSED:
     case ARES_EBADFAMILY:
+      /* remove current query from conn, no need to requeue when clean connect */
+      ares_remove_query_to_conn(conn, query);
       handle_conn_error(conn, ARES_TRUE, status);
       status = ares_requeue_query(query, now, status, ARES_TRUE, NULL, NULL);
       if (status == ARES_ETIMEOUT) {
