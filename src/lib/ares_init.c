@@ -334,6 +334,7 @@ int ares_init_options(ares_channel_t           **channelptr,
   }
 
   if (status == ARES_SUCCESS) {
+    ares_set_socket_functions_def(channel);
     status = ares_init_by_sysconfig(channel);
     if (status != ARES_SUCCESS) {
       DEBUGF(fprintf(stderr, "Error: init_by_sysconfig failed: %s\n",
@@ -352,7 +353,6 @@ int ares_init_options(ares_channel_t           **channelptr,
     goto done;
   }
 
-  ares_set_socket_functions_def(channel);
 
   /* Initialize the event thread */
   if (channel->optmask & ARES_OPT_EVENT_THREAD) {
