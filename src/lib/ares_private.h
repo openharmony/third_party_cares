@@ -392,7 +392,6 @@ ares_status_t  ares_init_by_options(ares_channel_t            *channel,
                                     int                        optmask);
 ares_status_t  ares_init_by_sysconfig(ares_channel_t *channel);
 void           ares_set_socket_functions_def(ares_channel_t *channel);
-void           ares_remove_query_to_conn(ares_conn_t *conn, ares_query_t *query);
 
 typedef struct {
   ares_llist_t    *sconfig;
