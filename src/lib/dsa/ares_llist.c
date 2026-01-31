@@ -380,23 +380,3 @@ void ares_llist_node_mvparent_first(ares_llist_node_t *node,
   ares_llist_node_detach(node);
   ares_llist_attach_at(new_parent, ARES__LLIST_INSERT_HEAD, NULL, node);
 }
-
-ares_llist_node_t *ares_llist_node_search(ares_llist_t *list, void *val)
-{
-  ares_llist_node_t *node;
-  size_t             cnt;
-
-  if (list == NULL || val == NULL) {
-    return NULL;
-  }
-
-  node = list->head;
-  for (cnt = 0; node != NULL && cnt < list->cnt; cnt++) {
-    if (node->data == val) {
-      return node;
-    }
-    node = node->next;
-  }
-
-  return NULL;
-}
