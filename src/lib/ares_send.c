@@ -149,6 +149,14 @@ ares_status_t ares_send_nolock(ares_channel_t *channel, ares_server_t *server,
   query->timeout.usec = 0;
   query->using_tcp =
     (channel->flags & ARES_FLAG_USEVC) ? ARES_TRUE : ARES_FALSE;
+  size_t max_tries = ares_slist_len(channel->servers) * channel->tries;
+  query->node_queries_to_conn_set = ares_malloc(sizeof(ares_llist_node_t *) * max_tries);
+  if (!query->node_queries_to_conn_set) {
+    ares_free(query);
+    callback(arg, ARES_ENOMEM, 0, NULL); /* LCOV_EXCL_LINE: OutOfMemory */
+    return ARES_ENOMEM;                  /* LCOV_EXCL_LINE: OutOfMemory */
+  }
+  query->queries_to_conn_count = 0;
 
   /* Duplicate Query */
   status = ares_dns_record_duplicate_ex(&query->query, dnsrec);
@@ -158,6 +166,7 @@ ares_status_t ares_send_nolock(ares_channel_t *channel, ares_server_t *server,
     if (status == ARES_EBADRESP) {
       status = ARES_EBADQUERY;
     }
+    ares_free(query->node_queries_to_conn_set);
     ares_free(query);
     callback(arg, status, 0, NULL);
     return status;
@@ -192,7 +201,6 @@ ares_status_t ares_send_nolock(ares_channel_t *channel, ares_server_t *server,
 
   /* Initialize our list nodes. */
   query->node_queries_by_timeout = NULL;
-  query->node_queries_to_conn = NULL;
 
   /* Chain the query into the list of all queries. */
   query->node_all_queries = ares_llist_insert_last(channel->all_queries, query);
@@ -217,7 +225,7 @@ ares_status_t ares_send_nolock(ares_channel_t *channel, ares_server_t *server,
 
   /* Perform the first query action. */
 
-  status = ares_send_query(server, query, &now);
+  status = ares_send_query(channel, server, query, &now);
   if (status == ARES_SUCCESS && qid) {
     *qid = id;
   }

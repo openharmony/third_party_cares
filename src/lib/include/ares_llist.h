@@ -236,4 +236,13 @@ CARES_EXTERN void ares_llist_node_mvparent_first(ares_llist_node_t *node,
                                                  ares_llist_t      *new_parent);
 /*! @} */
 
+/*! search node from the current list
+ *
+ *  \param[in] list   Initialized linked list object
+ *  \param[in] val    user-supplied value.
+ *  \return node object referencing place in list, or null if not found
+ */
+CARES_EXTERN ares_llist_node_t *ares_llist_node_search(ares_llist_t *list,
+                                                       void *val);
+
 #endif /* __ARES__LLIST_H */
