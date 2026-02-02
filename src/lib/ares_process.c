@@ -606,7 +606,7 @@ cleanup:
       continue;
     }
 
-    internal_status = ares_send_query(entry.server, query, now);
+    internal_status = ares_send_query(channel, entry.server, query, now);
     /* We only care about ARES_ENOMEM */
     if (internal_status == ARES_ENOMEM) {
       status = ARES_ENOMEM;
