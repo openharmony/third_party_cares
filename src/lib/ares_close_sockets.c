@@ -31,13 +31,15 @@
 static void ares_requeue_queries(ares_conn_t  *conn,
                                  ares_status_t requeue_status)
 {
+  ares_channel_t *channel = conn->server->channel;
   ares_query_t  *query;
   ares_timeval_t now;
 
   ares_tvnow(&now);
 
   while ((query = ares_llist_first_val(conn->queries_to_conn)) != NULL) {
-    ares_requeue_query(query, &now, requeue_status, ARES_TRUE, NULL, NULL);
+    ares_remove_query_to_conn(conn, query);
+    ares_requeue_query(channel, query, &now, requeue_status, ARES_TRUE, NULL, NULL);
   }
 }
 

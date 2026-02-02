@@ -70,9 +70,7 @@ static void        ares_query_remove_from_conn(ares_query_t *query)
 {
   /* If its not part of a connection, it can't be tracked for timeouts either */
   ares_slist_node_destroy(query->node_queries_by_timeout);
-  ares_llist_node_destroy(query->node_queries_to_conn);
   query->node_queries_by_timeout = NULL;
-  query->node_queries_to_conn    = NULL;
   query->conn                    = NULL;
 }
 
@@ -668,7 +666,7 @@ static ares_status_t process_timeouts(ares_channel_t       *channel,
 
     conn = query->conn;
     server_increment_failures(conn->server, query->using_tcp);
-    status = ares_requeue_query(query, now, ARES_ETIMEOUT, ARES_TRUE, NULL,
+    status = ares_requeue_query(channel, query, now, ARES_ETIMEOUT, ARES_TRUE, NULL,
                                 NULL);
     if (status == ARES_ENOMEM) {
       goto done;
@@ -768,7 +766,8 @@ static ares_status_t process_answer(ares_channel_t      *channel,
   ares_server_t     *server  = conn->server;
   ares_dns_record_t *rdnsrec = NULL;
   ares_status_t      status;
-  ares_bool_t        is_cached = ARES_FALSE;
+  ares_bool_t is_cached = ARES_FALSE;
+  size_t i;
 
   /* UDP can have 0-byte messages, drop them to the ground */
   if (alen == 0) {
@@ -815,8 +814,13 @@ static ares_status_t process_answer(ares_channel_t      *channel,
    * remove it from the connection's queue so we can possibly invalidate the
    * connection. Delay cleaning up the connection though as we may enqueue
    * something new.  */
-  ares_llist_node_destroy(query->node_queries_to_conn);
-  query->node_queries_to_conn = NULL;
+  for (i = 0; i < query->queries_to_conn_count; i++) {
+    if (query->node_queries_to_conn_set[i] != NULL) {
+      ares_llist_node_destroy(query->node_queries_to_conn_set[i]);
+      query->node_queries_to_conn_set[i] = NULL;
+    }
+  }
+  query->queries_to_conn_count = 0;
 
   /* There are old servers that don't understand EDNS at all, then some servers
    * that have non-compliant implementations.  Lets try to detect this sort
@@ -869,7 +873,7 @@ static ares_status_t process_answer(ares_channel_t      *channel,
       }
 
       server_increment_failures(server, query->using_tcp);
-      status = ares_requeue_query(query, now, status, ARES_TRUE, rdnsrec, requeue);
+      status = ares_requeue_query(channel, query, now, status, ARES_TRUE, rdnsrec, requeue);
 
       if (status != ARES_ENOMEM) {
         /* Should any of these cause a connection termination?
@@ -916,17 +920,37 @@ static void handle_conn_error(ares_conn_t *conn, ares_bool_t critical_failure,
   ares_close_connection(conn, failure_status);
 }
 
+void ares_remove_query_to_conn(ares_conn_t *conn, ares_query_t *query)
+{
+  size_t i;
+  if (query == NULL || conn == NULL || conn->queries_to_conn == NULL) {
+    return;
+  }
+
+  for (i = 0; i < query->queries_to_conn_count; i++) {
+    if (query->node_queries_to_conn_set[i] != NULL &&
+        ares_llist_node_parent(query->node_queries_to_conn_set[i]) == conn->queries_to_conn) {
+      ares_llist_node_destroy(query->node_queries_to_conn_set[i]);
+      query->node_queries_to_conn_set[i] = NULL;
+    }
+  }
+}
+
 /* Requeue query will normally call ares_send_query() but in some circumstances
  * this needs to be delayed, so if requeue is not NULL, it will add the query
  * to the queue instead */
-ares_status_t ares_requeue_query(ares_query_t *query, const ares_timeval_t *now,
+ares_status_t ares_requeue_query(ares_channel_t *channel,
+                                 ares_query_t *query, const ares_timeval_t *now,
                                  ares_status_t            status,
                                  ares_bool_t              inc_try_count,
                                  const ares_dns_record_t *dnsrec,
                                  ares_array_t           **requeue)
 {
-  ares_channel_t *channel   = query->channel;
   size_t          max_tries = ares_slist_len(channel->servers) * channel->tries;
+
+  if (ares_llist_node_search(channel->all_queries, query) == NULL) {
+    return ARES_EBADQUERY;
+  }
 
   ares_query_remove_from_conn(query);
 
@@ -942,7 +966,7 @@ ares_status_t ares_requeue_query(ares_query_t *query, const ares_timeval_t *now,
     if (requeue != NULL) {
       return ares_append_requeue(requeue, query, NULL);
     }
-    return ares_send_query(NULL, query, now);
+    return ares_send_query(channel, NULL, query, now);
   }
 
   /* If we are here, all attempts to perform query failed. */
@@ -1207,16 +1231,18 @@ static ares_status_t ares_conn_query_write(ares_conn_t          *conn,
   return ares_conn_flush(conn);
 }
 
-ares_status_t ares_send_query(ares_server_t *requested_server,
+ares_status_t ares_send_query(ares_channel_t *channel, ares_server_t *requested_server,
                               ares_query_t *query, const ares_timeval_t *now)
 {
-  ares_channel_t *channel = query->channel;
   ares_server_t  *server;
   ares_conn_t    *conn;
   size_t          timeplus;
   ares_status_t   status;
   ares_bool_t     probe_downed_server = ARES_TRUE;
 
+  if (ares_llist_node_search(channel->all_queries, query) == NULL) {
+    return ARES_EBADQUERY;
+  }
 
   /* Choose the server to send the query to */
   if (requested_server != NULL) {
@@ -1256,7 +1282,7 @@ ares_status_t ares_send_query(ares_server_t *requested_server,
       case ARES_ECONNREFUSED:
       case ARES_EBADFAMILY:
         server_increment_failures(server, query->using_tcp);
-        return ares_requeue_query(query, now, status, ARES_TRUE, NULL, NULL);
+        return ares_requeue_query(channel, query, now, status, ARES_TRUE, NULL, NULL);
 
       /* Anything else is not retryable, likely ENOMEM */
       default:
@@ -1281,8 +1307,9 @@ ares_status_t ares_send_query(ares_server_t *requested_server,
      * error codes */
     case ARES_ECONNREFUSED:
     case ARES_EBADFAMILY:
+      ares_remove_query_to_conn(conn, query);
       handle_conn_error(conn, ARES_TRUE, status);
-      status = ares_requeue_query(query, now, status, ARES_TRUE, NULL, NULL);
+      status = ares_requeue_query(channel, query, now, status, ARES_TRUE, NULL, NULL);
       if (status == ARES_ETIMEOUT) {
         status = ARES_ECONNREFUSED;
       }
@@ -1290,7 +1317,7 @@ ares_status_t ares_send_query(ares_server_t *requested_server,
 
     default:
       server_increment_failures(server, query->using_tcp);
-      status = ares_requeue_query(query, now, status, ARES_TRUE, NULL, NULL);
+      status = ares_requeue_query(channel, query, now, status, ARES_TRUE, NULL, NULL);
       return status;
   }
 
@@ -1316,15 +1343,16 @@ ares_status_t ares_send_query(ares_server_t *requested_server,
 
   /* Keep track of queries bucketed by connection, so we can process errors
    * quickly. */
-  ares_llist_node_destroy(query->node_queries_to_conn);
-  query->node_queries_to_conn =
-    ares_llist_insert_last(conn->queries_to_conn, query);
-
-  if (query->node_queries_to_conn == NULL) {
-    /* LCOV_EXCL_START: OutOfMemory */
-    end_query(channel, server, query, ARES_ENOMEM, NULL);
-    return ARES_ENOMEM;
-    /* LCOV_EXCL_STOP */
+  if (ares_llist_node_search(conn->queries_to_conn, query) == NULL) {
+    ares_llist_node_t *new_node_queries_to_conn =
+      ares_llist_insert_last(conn->queries_to_conn, query);
+    if (new_node_queries_to_conn == NULL) {
+      /* LCOV_EXCL_START: OutOfMemory */
+      end_query(channel, server, query, ARES_ENOMEM, NULL);
+      return ARES_ENOMEM;
+      /* LCOV_EXCL_STOP */
+    }
+    query->node_queries_to_conn_set[query->queries_to_conn_count++] = new_node_queries_to_conn;
   }
 
   query->conn = conn;
@@ -1434,6 +1462,7 @@ static void end_query(ares_channel_t *channel, ares_server_t *server,
 
 void ares_free_query(ares_query_t *query)
 {
+  size_t i;
   ares_detach_query(query);
   /* Zero out some important stuff, to help catch bugs */
   query->callback = NULL;
@@ -1441,5 +1470,13 @@ void ares_free_query(ares_query_t *query)
   /* Deallocate the memory associated with the query */
   ares_dns_record_destroy(query->query);
 
+  for (i = 0; i < query->queries_to_conn_count; i++) {
+    if (query->node_queries_to_conn_set[i] != NULL) {
+      ares_llist_node_destroy(query->node_queries_to_conn_set[i]);
+      query->node_queries_to_conn_set[i] = NULL;
+    }
+  }
+  query->queries_to_conn_count = 0;
+  ares_free(query->node_queries_to_conn_set);
   ares_free(query);
 }
