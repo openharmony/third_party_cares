@@ -161,7 +161,7 @@ struct ares_query {
    * make removal operations O(1).
    */
   ares_slist_node_t   *node_queries_by_timeout;
-  ares_llist_node_t   *node_queries_to_conn;
+  ares_llist_node_t   **node_queries_to_conn_set;
   ares_llist_node_t   *node_all_queries;
 
   /* connection handle query is associated with */
@@ -174,6 +174,7 @@ struct ares_query {
   void                *arg;
 
   /* Query status */
+  size_t        queries_to_conn_count;
   size_t        try_count; /* Number of times we tried this query already. */
   size_t        cookie_try_count; /* Attempt count for cookie resends */
   ares_bool_t   using_tcp;
@@ -339,13 +340,14 @@ struct ares_process_info {
 ares_bool_t   ares_is_onion_domain(const char *name);
 
 /* Returns one of the normal ares status codes like ARES_SUCCESS */
-ares_status_t ares_send_query(ares_server_t *requested_server /* Optional */,
+ares_status_t ares_send_query(ares_channel_t *channel, ares_server_t *requested_server /* Optional */,
                               ares_query_t *query, const ares_timeval_t *now);
-ares_status_t ares_requeue_query(ares_query_t *query, const ares_timeval_t *now,
-                                 ares_status_t            status,
-                                 ares_bool_t              inc_try_count,
+ares_status_t ares_requeue_query(ares_channel_t *channel,
+                                 ares_query_t *query, const ares_timeval_t *now,
+                                 ares_status_t status,
+                                 ares_bool_t inc_try_count,
                                  const ares_dns_record_t *dnsrec,
-                                 ares_array_t           **requeue);
+                                 ares_array_t **requeue);
 
 /*! Count the number of labels (dots+1) in a domain */
 size_t        ares_name_label_cnt(const char *name);
@@ -392,6 +394,7 @@ ares_status_t  ares_init_by_options(ares_channel_t            *channel,
                                     int                        optmask);
 ares_status_t  ares_init_by_sysconfig(ares_channel_t *channel);
 void           ares_set_socket_functions_def(ares_channel_t *channel);
+void           ares_remove_query_to_conn(ares_conn_t *conn, ares_query_t *query);
 
 typedef struct {
   ares_llist_t    *sconfig;
