@@ -373,6 +373,7 @@ ares_status_t ares_cookie_validate(ares_query_t            *query,
                                    ares_array_t **requeue)
 {
   ares_server_t           *server = conn->server;
+  ares_channel_t          *channel = server->channel;
   ares_cookie_t           *cookie = &server->cookie;
   const ares_dns_record_t *dnsreq = query->query;
   const unsigned char     *resp_cookie;
@@ -427,7 +428,7 @@ ares_status_t ares_cookie_validate(ares_query_t            *query,
 
     /* Resend the request, hopefully it will work the next time as we should
      * have recorded a server cookie */
-    ares_requeue_query(query, now, ARES_SUCCESS,
+    ares_requeue_query(channel, query, now, ARES_SUCCESS,
                        ARES_FALSE /* Don't increment try count */, NULL,
                        requeue);
 
