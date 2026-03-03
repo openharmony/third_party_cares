@@ -541,6 +541,7 @@ static ares_status_t read_answers(ares_conn_t *conn, const ares_timeval_t *now)
   ares_status_t   status;
   ares_channel_t *channel = conn->server->channel;
   ares_array_t   *requeue = NULL;
+  ares_socket_t connFd = conn->fd;
 
   /* Process all queued answers */
   while (1) {
@@ -578,6 +579,11 @@ static ares_status_t read_answers(ares_conn_t *conn, const ares_timeval_t *now)
 
     /* We finished reading this answer; process it */
     status = process_answer(channel, data, data_len, conn, now, &requeue);
+    // if conn has been removed from channel after process_answer, cleanup
+    ares_conn_t *existConn = ares_conn_from_fd(channel, connFd);
+    if (existConn == NULL) {
+      goto cleanup;
+    }
     if (status != ARES_SUCCESS) {
       handle_conn_error(conn, ARES_TRUE, status);
       goto cleanup;
