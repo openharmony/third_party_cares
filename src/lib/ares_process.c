@@ -572,7 +572,7 @@ static ares_status_t read_answers(ares_conn_t *conn, const ares_timeval_t *now)
 {
   ares_status_t   status;
   ares_channel_t *channel  = conn->server->channel;
-  ares_array_t *requeue = NULL;
+  ares_array_t   *requeue  = NULL;
   ares_socket_t connFd = conn->fd;
 
   /* Process all queued answers */
