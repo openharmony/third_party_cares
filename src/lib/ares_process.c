@@ -645,7 +645,7 @@ cleanup:
       if (query == NULL) {
         continue;
       }
-      internal_status = ares_send_query(entry.server, query, now);
+      internal_status = ares_send_query(channel, entry.server, query, now);
       /* We only care about ARES_ENOMEM */
       if (internal_status == ARES_ENOMEM) {
         status = ARES_ENOMEM;
@@ -923,7 +923,7 @@ static ares_status_t process_answer(ares_channel_t      *channel,
       }
 
       server_increment_failures(server, query->using_tcp);
-      status = ares_requeue_query(query, now, status, ARES_TRUE, rdnsrec,
+      status = ares_requeue_query(channel, query, now, status, ARES_TRUE, rdnsrec,
         requeue);
       rdnsrec = NULL; /* Free'd by ares_requeue_query() */
 
