@@ -550,6 +550,19 @@ CARES_EXTERN void ares_getaddrinfo(ares_channel_t *channel, const char *node,
 
 CARES_EXTERN void ares_freeaddrinfo(struct ares_addrinfo *ai);
 
+#if defined(OHOS_DNS_PROXY_BY_NETSYS) && defined(HAS_NETMANAGER_BASE)
+/*! Check if AAAA query for the given hostname and netid returned nodata.
+ *  This function queries the DNS cache to determine if an AAAA query
+ *  has been performed and returned no data (i.e., the domain exists but
+ *  has no AAAA records).
+ *
+ *  \param[in] netid     The network ID
+ *  \param[in] hostname  The hostname to check
+ *  \return ARES_TRUE if AAAA query returned nodata, ARES_FALSE otherwise
+ */
+CARES_EXTERN ares_bool_t ares_is_aaaa_nodata(int32_t netid, const char *hostname);
+#endif
+
 /*
  * Virtual function set to have user-managed socket IO.
  * Note that all functions need to be defined, and when
