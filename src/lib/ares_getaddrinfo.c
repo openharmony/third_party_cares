@@ -141,6 +141,10 @@ typedef struct {
     uint32_t ttl;
 } dns_ans;
 
+int32_t NetSysSetNodataCache(int netid, const char *hostname);
+
+int NetSysGetNodataCache(uint16_t netId, const char *host);
+
 void ares_addrinfo_hints_to_addrinfo(const struct ares_addrinfo_hints *hints, struct addrinfo *out_hints) {
   if (hints == NULL || out_hints == NULL) {
     return;
@@ -763,6 +767,69 @@ static ares_bool_t fake_addrinfo(const char *name, unsigned short port,
   return ARES_TRUE;
 }
 
+#if OHOS_DNS_PROXY_BY_NETSYS
+/* Check if AAAA query returned nodata based on process_info.
+ * This function analyzes the process_info to determine if the AAAA query
+ * returned nodata (domain exists but has no AAAA records).
+ *
+ * @param process_info Pointer to the process info structure containing query results
+ * @param netid The network ID
+ * @param hostname The hostname that was queried
+ * @return ARES_TRUE if AAAA query returned nodata, ARES_FALSE otherwise
+ *
+ * The function checks:
+ * - ipv6QueryInfo.retCode: the return code of AAAA query
+ * - ipv6QueryInfo.isNoAnswer: whether the AAAA query had no answer (nodata)
+ * If retCode is ARES_SUCCESS (0) and isNoAnswer is 1, it means AAAA query returned nodata
+ */
+static ares_bool_t ares_check_aaaa_nodata(struct ares_process_info *process_info,
+                                          int32_t netid, const char *hostname)
+{
+  if (process_info == NULL || hostname == NULL) {
+    return ARES_FALSE;
+  }
+
+  /* Check if AAAA query returned nodata */
+  struct ares_family_query_info *ipv6Info = &process_info->ipv6QueryInfo;
+
+  /* If retCode is ARES_SUCCESS (0) and isNoAnswer is 1, AAAA query returned nodata */
+  if (ipv6Info->retCode == ARES_SUCCESS && ipv6Info->isNoAnswer == 1) {
+    return ARES_TRUE;
+  }
+
+  return ARES_FALSE;
+}
+
+/* Report AAAA nodata status to netsys.
+ * This function is called before ares_record_process to report
+ * the AAAA query nodata status to the netsys service.
+ *
+ * @param process_info Pointer to the process info structure containing query results
+ * @param netid The network ID
+ * @param hostname The hostname that was queried
+ */
+static void ares_report_aaaa_nodata(int32_t netid, const char *hostname,
+                                    struct ares_process_info *process_info)
+{
+  if (hostname == NULL || process_info == NULL) {
+    return;
+  }
+
+  /* Check if AAAA query returned nodata */
+  ares_bool_t isAaaaNodata = ares_check_aaaa_nodata(process_info, netid, hostname);
+  if (isAaaaNodata) {
+    /* AAAA query returned nodata, report to netsys with special handling
+     * The nodata status is already stored in process_info->ipv6QueryInfo.isNoAnswer
+     * We call NetSysSetNodataCache to report the result
+     */
+    if (process_info->retCode == ARES_SUCCESS && process_info->hostname != NULL) {
+      /* If query was successful but returned no addresses, it's nodata */
+      NetSysSetNodataCache((int)netid, hostname);
+    }
+  }
+}
+#endif
+
 static void hquery_free(struct host_query *hquery, ares_bool_t cleanup_ai)
 {
   if (cleanup_ai) {
@@ -815,6 +882,8 @@ static void end_hquery(struct host_query *hquery, ares_status_t status)
   int allDuration = ares_get_now_time() - hquery->process_info.queryTime;
   int firstQueryEnd2AppDuration = allDuration - hquery->process_info.firstQueryEndDuration;
   hquery->process_info.firstQueryEnd2AppDuration = firstQueryEnd2AppDuration;
+  /* Report AAAA nodata status to netsys before ares_record_process */
+  ares_report_aaaa_nodata(hquery->channel->netId, hquery->name, &hquery->process_info);
   ares_record_process(status, hquery->name, hquery->process_info.queryTime, NULL, hquery);
 #endif
   hquery->callback(hquery->arg, (int)status, (int)hquery->timeouts, hquery->ai);
@@ -1233,7 +1302,9 @@ void ares_getaddrinfo(ares_channel_t *channel, const char *name,
 static ares_bool_t next_dns_lookup(struct host_query *hquery)
 {
   const char *name = NULL;
-
+#if OHOS_DNS_PROXY_BY_NETSYS
+  int nodata = 0;
+#endif
   if (hquery->next_name_idx >= hquery->names_cnt) {
     return ARES_FALSE;
   }
@@ -1255,12 +1326,32 @@ static ares_bool_t next_dns_lookup(struct host_query *hquery)
                         &hquery->qid_aaaa);
       break;
     case AF_UNSPEC:
+#if OHOS_DNS_PROXY_BY_NETSYS
+      /* Check if AAAA query previously returned nodata for this hostname.
+       * If so, skip AAAA query to improve performance. */
+      nodata = NetSysGetNodataCache(hquery->channel->netId, name);
+      if (nodata > 0) {
+        /* AAAA nodata cache exists, only query A record */
+        hquery->remaining += 1;
+        ares_query_nolock(hquery->channel, name, ARES_CLASS_IN, ARES_REC_TYPE_A,
+                          host_callback, hquery, &hquery->qid_a);
+      } else {
+        /* No nodata cache, query both A and AAAA records */
+        hquery->remaining += 2;
+        ares_query_nolock(hquery->channel, name, ARES_CLASS_IN, ARES_REC_TYPE_A,
+                          host_callback, hquery, &hquery->qid_a);
+        ares_query_nolock(hquery->channel, name, ARES_CLASS_IN,
+                          ARES_REC_TYPE_AAAA, host_callback, hquery,
+                          &hquery->qid_aaaa);
+      }
+#else
       hquery->remaining += 2;
       ares_query_nolock(hquery->channel, name, ARES_CLASS_IN, ARES_REC_TYPE_A,
                         host_callback, hquery, &hquery->qid_a);
       ares_query_nolock(hquery->channel, name, ARES_CLASS_IN,
                         ARES_REC_TYPE_AAAA, host_callback, hquery,
                         &hquery->qid_aaaa);
+#endif
       break;
     default:
       break;
