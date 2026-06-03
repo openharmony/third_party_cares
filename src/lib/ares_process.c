@@ -613,7 +613,7 @@ static ares_status_t read_answers(ares_conn_t *conn, const ares_timeval_t *now)
     status = process_answer(channel, data, data_len, conn, now, &requeue);
     // if conn has been removed from channel after process_answer, cleanup
     ares_conn_t *existConn = ares_conn_from_fd(channel, connFd);
-    if (existConn == NULL) {
+    if (existConn == NULL || conn != existConn) {
       goto cleanup;
     }
     if (status != ARES_SUCCESS) {
