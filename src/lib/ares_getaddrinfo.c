@@ -1327,11 +1327,11 @@ static ares_bool_t next_dns_lookup(struct host_query *hquery)
       break;
     case AF_UNSPEC:
 #if OHOS_DNS_PROXY_BY_NETSYS
-      /* Check if AAAA query previously returned nodata for this hostname.
+      /* Check if AAAA query previously returned nodata for this hostname or uid.
        * If so, skip AAAA query to improve performance. */
       nodata = NetSysGetNodataCache(hquery->channel->netId, name);
       if (nodata > 0) {
-        /* AAAA nodata cache exists, only query A record */
+        /* AAAA nodata cache or ipv6 uid black list exists, only query A record */
         hquery->remaining += 1;
         ares_query_nolock(hquery->channel, name, ARES_CLASS_IN, ARES_REC_TYPE_A,
                           host_callback, hquery, &hquery->qid_a);
