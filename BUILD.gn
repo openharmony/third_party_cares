@@ -168,6 +168,7 @@ config("c_ares_config") {
   ]
 }
 ohos_shared_library("c_ares") {
+  branch_protector_ret = "pac_ret"
   deps = [ ":installCares" ]
   install_images = [
     "updater",
@@ -195,6 +196,7 @@ ohos_shared_library("c_ares") {
 }
 
 ohos_static_library("c_ares_static") {
+  branch_protector_ret = "pac_ret"
   deps = [ ":installCares" ]
   sources = []
   foreach(src, cares_srcs) {
@@ -215,6 +217,7 @@ ohos_static_library("c_ares_static") {
 }
 
 ohos_executable("cares_test") {
+  branch_protector_ret = "pac_ret"
   sources = []
   foreach(src, sources_test) {
     sources += [ "$code_dir/" + src ]
