@@ -237,9 +237,12 @@ struct addrinfo *ares_addrinfo_to_addrinfo(
   return out_res;
 }
 
-void ares_check_status_useless(int status)
+ares_bool_t ares_check_status_useless(int status)
 {
-    return (status == ARES_EDESTRUCTION || status == ARES_ECANCELLED);
+  if (status == ARES_EDESTRUCTION || status == ARES_ECANCELLED) {
+    return ARES_TRUE;
+  }
+  return ARES_FALSE;
 }
 
 void ares_record_process(int status, const char *hostname, long long start_time,
