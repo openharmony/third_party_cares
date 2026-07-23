@@ -237,10 +237,21 @@ struct addrinfo *ares_addrinfo_to_addrinfo(
   return out_res;
 }
 
+ares_bool_t ares_check_status_useless(int status)
+{
+  if (status == ARES_EDESTRUCTION || status == ARES_ECANCELLED) {
+    return ARES_TRUE;
+  }
+  return ARES_FALSE;
+}
+
 void ares_record_process(int status, const char *hostname, long long start_time,
     const struct ares_addrinfo *addr_info, struct host_query *hquery)
 {
   if (hostname == NULL) {
+    return;
+  }
+  if (ares_check_status_useless(status)) {
     return;
   }
   int num;
@@ -1250,9 +1261,6 @@ static void ares_getaddrinfo_int(ares_channel_t *channel, const char *name,
   hquery->process_info.ipv6QueryInfo = empty_family_query_info;
 #endif
   if (hquery->name == NULL) {
-#if OHOS_DNS_PROXY_BY_NETSYS
-    ares_record_process(ARES_ENOMEM, name, time_now, NULL, NULL);
-#endif
     hquery_free(hquery, ARES_TRUE);
     callback(arg, ARES_ENOMEM, 0, NULL);
     return;
@@ -1273,9 +1281,6 @@ static void ares_getaddrinfo_int(ares_channel_t *channel, const char *name,
 
   hquery->lookups = ares_strdup(channel->lookups);
   if (hquery->lookups == NULL) {
-#if OHOS_DNS_PROXY_BY_NETSYS
-    ares_record_process(status, name, time_now, NULL, NULL);
-#endif
     hquery_free(hquery, ARES_TRUE);
     callback(arg, ARES_ENOMEM, 0, NULL);
     return;
