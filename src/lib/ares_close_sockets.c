@@ -120,7 +120,7 @@ void ares_check_cleanup_conns(const ares_channel_t *channel)
        * connection (and specifically the source port number) can help resolve
        * situations where packets are being dropped.
        */
-      if (conn->server->consec_failures > 0) {
+      if (conn->server != NULL && conn->server->consec_failures > 0) {
         do_cleanup = ARES_TRUE;
       }
 
