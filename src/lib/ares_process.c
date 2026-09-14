@@ -117,6 +117,10 @@ static void server_increment_failures(ares_server_t *server,
   const ares_channel_t *channel = server->channel;
   ares_timeval_t        next_retry_time;
 
+  if (channel == NULL) {
+    return;
+  }
+  
   node = ares_slist_node_find(channel->servers, server);
   if (node == NULL) {
     return; /* LCOV_EXCL_LINE: DefensiveCoding */
