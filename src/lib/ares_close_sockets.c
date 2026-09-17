@@ -98,6 +98,10 @@ void ares_check_cleanup_conns(const ares_channel_t *channel)
     ares_server_t     *server = ares_slist_node_val(snode);
     ares_llist_node_t *cnode;
 
+    if (server == NULL) {
+      continue;
+    }
+    
     /* Iterate across each connection */
     cnode = ares_llist_node_first(server->connections);
     while (cnode != NULL) {
